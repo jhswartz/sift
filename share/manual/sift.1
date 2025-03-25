@@ -1,0 +1,325 @@
+.TH sift "1" "Mar 2025" "sift 0.1" "sift manual"
+
+.SH NAME
+sift \- sift raw data into typed value(s)
+
+.SH SYNOPSIS
+\fBsift\fR [\fIOPTIONS\fR]
+
+.SH DESCRIPTION
+.PP
+Sift raw data into an array of one or more typed values.
+
+.TP
+\fB\-t\fR \fITYPE\fR
+value type (see \fBTYPES\fR for a list of supported types)
+
+.TP
+\fB\-f\fR \fIFORMAT\fR
+value format string (see \fBTYPES\fR for default format strings)
+
+.TP
+\fB\-s\fR \fISIZE\fR
+value size in bytes (default if unspecified: \fBsizeof(TYPE)\fR)
+
+.TP
+\fB\-c\fR \fICOUNT\fR
+number of values in the array (default if unspecified: \fB1\fR)
+
+.SH TYPES
+.PP
+Be aware that \fBsift\fR does not offer macro expansion at run time. Consult \fI<inttypes.h>\fR to determine how the PRI* macros listed below are expanded by the target's preprocessor at compile time.
+
+.TP
+\fBint8\fR
+.RS
+8-bit signed integer
+.RE
+.RS
+"%" PRId8
+.RE
+
+.TP
+\fBuint8\fR
+.RS
+8-bit unsigned integer
+.RE
+.RS
+"%" PRIu8
+.RE
+
+.TP
+\fBint16le\fR
+.RS
+16-bit little endian signed integer
+.RE
+.RS
+"%" PRId16
+.RE
+
+.TP
+\fBint16be\fR
+.RS
+16-bit big endian signed integer
+.RE
+.RS
+"%" PRId16
+.RE
+
+.TP
+\fBint16\fR
+.RS
+16-bit signed integer
+.RE
+.RS
+"%" PRId16
+.RE
+
+.TP
+\fBuint16le\fR
+.RS
+16-bit little endian unsigned integer
+.RE
+.RS
+"%" PRIu16
+.RE
+
+.TP
+\fBuint16be\fR
+.RS
+16-bit big endian unsigned integer
+.RE
+.RS
+"%" PRIu16
+.RE
+
+.TP
+\fBuint16\fR
+.RS
+16-bit unsigned integer
+.RE
+.RS
+"%" PRIu16
+.RE
+
+.TP
+\fBint32le\fR
+.RS
+32-bit little endian signed integer 
+.RE
+.RS
+"%" PRId32
+.RE
+
+.TP
+\fBint32be\fR
+.RS
+32-bit big endian signed integer 
+.RE
+.RS
+"%" PRId32
+.RE
+
+.TP
+\fBint32\fR
+.RS
+32-bit signed integer 
+.RE
+.RS
+"%" PRId32
+.RE
+
+.TP
+\fBuint32le\fR
+.RS
+32-bit little endian unsigned integer 
+.RE
+.RS
+"%" PRIu32
+.RE
+
+.TP
+\fBuint32be\fR
+.RS
+32-bit big endian unsigned integer 
+.RE
+.RS
+"%" PRIu32
+.RE
+
+.TP
+\fBuint32\fR
+.RS
+32-bit unsigned integer 
+.RE
+.RS
+"%" PRIu32
+.RE
+
+.TP
+\fBint64le\fR
+.RS
+64-bit little endian signed integer 
+.RE
+.RS
+"%" PRId64
+.RE
+
+.TP
+\fBint64be\fR
+.RS
+64-bit big endian signed integer 
+.RE
+.RS
+"%" PRId64
+.RE
+
+.TP
+\fBint64\fR
+.RS
+64-bit signed integer 
+.RE
+.RS
+"%" PRId64
+.RE
+
+.TP
+\fBuint64le\fR
+.RS
+64-bit little endian unsigned integer 
+.RE
+.RS
+"%" PRIu64
+.RE
+
+.TP
+\fBuint64be\fR
+.RS
+64-bit big endian unsigned integer 
+.RE
+.RS
+"%" PRIu64
+.RE
+
+.TP
+\fBuint64\fR
+.RS
+64-bit unsigned integer 
+.RE
+.RS
+"%" PRIu64
+.RE
+
+.TP
+\fBstring\fR
+.RS
+variable length NUL-terminated string
+.RE
+.RS
+"%s"
+.RE
+
+.SH EXAMPLES
+
+.SS Display a little endian 16-bit unsigned integer 
+.BR
+.EX
+  $ printf "\\001\\000" | sift -t uint16le
+  1
+.EE
+
+.SS Display a big endian 16-bit signed integer 
+.BR
+.EX
+  $ printf "\\377\\377" | sift -t int16be
+  -1
+.EE
+
+.SS Display a big endian 32-bit unsigned integer in hexadecimal
+.BR
+.EX
+  $ printf "\\001\\000\\000\\000" | sift -f "%x" -t uint32be
+  1000000
+.EE
+
+.SS Display an array of 4 x 8-bit unsigned integers
+.BR
+.EX
+  $ printf "\\374\\375\\376\\377" | sift -c 4 -t uint8
+  252
+  253
+  254
+  255
+.EE
+
+.SS Display a native ELF64 object's \.shstrtab
+.BR
+.EX
+Offset of the Section Header Table
+
+  $ dump -o 0x28 -s 8 /bin/sh | sift -f "0x%x" -t uint64
+  0x1e378
+
+
+Size of a Section Header
+
+  $ dump -o 0x3a -s 2 /bin/sh | sift -t uint16
+  64
+
+
+Index of the Section Name Table header
+
+  $ dump -o 0x3e -s 2 /bin/sh | sift -t uint16
+  27
+
+
+Offset of \.shstrtab data
+
+  $ dump -o $((0x1e378 + (64 * 27) + 0x18)) -s 8 /bin/sh | \\
+    sift -f "0x%x" -t uint64
+  0x1e274
+
+
+Size of \.shstrtab data
+
+  $ dump -o $((0x1e378 + (64 * 27) + 0x20)) -s 8 /bin/sh | \\
+    sift -t uint64
+  257
+
+
+Contents of \.shstrtab
+
+  $ dump -o 0x1e274 -s 257 /bin/sh | sift -c 27 -t string
+
+  .shstrtab
+  .interp
+  .note.gnu.build-id
+  .note.ABI-tag
+  .gnu.hash
+  .dynsym
+  .dynstr
+  .gnu.version
+  .gnu.version_r
+  .rela.dyn
+  .rela.plt
+  .init
+  .plt.got
+  .text
+  .fini
+  .rodata
+  .eh_frame_hdr
+  .eh_frame
+  .init_array
+  .fini_array
+  .data.rel.ro
+  .dynamic
+  .data
+  .bss
+  .gnu_debuglink
+.EE
+
+.SH AUTHOR
+Justin Swartz <justin.swartz@risingedge.co.za>
+
+.SH SEE ALSO
+dump(1)

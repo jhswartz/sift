@@ -1,0 +1,202 @@
+sift(1)                           sift manual                          sift(1)
+
+NAME
+       sift - sift raw data into typed value(s)
+
+SYNOPSIS
+       sift [OPTIONS]
+
+DESCRIPTION
+       Sift raw data into an array of one or more typed values.
+
+       -t TYPE
+              value type (see TYPES for a list of supported types)
+
+       -f FORMAT
+              value format string (see TYPES for default format strings)
+
+       -s SIZE
+              value size in bytes (default if unspecified: sizeof(TYPE))
+
+       -c COUNT
+              number of values in the array (default if unspecified: 1)
+
+TYPES
+       Be  aware that sift does not offer macro expansion at run time. Consult
+       <inttypes.h> to determine how the PRI* macros listed below are expanded
+       by the target's preprocessor at compile time.
+
+       int8
+              8-bit signed integer
+              "%" PRId8
+
+       uint8
+              8-bit unsigned integer
+              "%" PRIu8
+
+       int16le
+              16-bit little endian signed integer
+              "%" PRId16
+
+       int16be
+              16-bit big endian signed integer
+              "%" PRId16
+
+       int16
+              16-bit signed integer
+              "%" PRId16
+
+       uint16le
+              16-bit little endian unsigned integer
+              "%" PRIu16
+
+       uint16be
+              16-bit big endian unsigned integer
+              "%" PRIu16
+
+       uint16
+              16-bit unsigned integer
+              "%" PRIu16
+
+       int32le
+              32-bit little endian signed integer
+              "%" PRId32
+
+       int32be
+              32-bit big endian signed integer
+              "%" PRId32
+
+       int32
+              32-bit signed integer
+              "%" PRId32
+
+       uint32le
+              32-bit little endian unsigned integer
+              "%" PRIu32
+
+       uint32be
+              32-bit big endian unsigned integer
+              "%" PRIu32
+
+       uint32
+              32-bit unsigned integer
+              "%" PRIu32
+
+       int64le
+              64-bit little endian signed integer
+              "%" PRId64
+
+       int64be
+              64-bit big endian signed integer
+              "%" PRId64
+
+       int64
+              64-bit signed integer
+              "%" PRId64
+
+       uint64le
+              64-bit little endian unsigned integer
+              "%" PRIu64
+
+       uint64be
+              64-bit big endian unsigned integer
+              "%" PRIu64
+
+       uint64
+              64-bit unsigned integer
+              "%" PRIu64
+
+       string
+              variable length NUL-terminated string
+              "%s"
+
+EXAMPLES
+   Display a little endian 16-bit unsigned integer
+
+         $ printf "\001\000" | sift -t uint16le
+         1
+
+   Display a big endian 16-bit signed integer
+
+         $ printf "\377\377" | sift -t int16be
+         -1
+
+   Display a big endian 32-bit unsigned integer in hexadecimal
+
+         $ printf "\001\000\000\000" | sift -f "%x" -t uint32be
+         1000000
+
+   Display an array of 4 x 8-bit unsigned integers
+
+         $ printf "\374\375\376\377" | sift -c 4 -t uint8
+         252
+         253
+         254
+         255
+
+   Display a native ELF64 object's .shstrtab
+
+       Offset of the Section Header Table
+
+         $ dump -o 0x28 -s 8 /bin/sh | sift -f "0x%x" -t uint64
+         0x1e378
+
+       Size of a Section Header
+
+         $ dump -o 0x3a -s 2 /bin/sh | sift -t uint16
+         64
+
+       Index of the Section Name Table header
+
+         $ dump -o 0x3e -s 2 /bin/sh | sift -t uint16
+         27
+
+       Offset of .shstrtab data
+
+         $ dump -o $((0x1e378 + (64 * 27) + 0x18)) -s 8 /bin/sh | \
+           sift -f "0x%x" -t uint64
+         0x1e274
+
+       Size of .shstrtab data
+
+         $ dump -o $((0x1e378 + (64 * 27) + 0x20)) -s 8 /bin/sh | \
+           sift -t uint64
+         257
+
+       Contents of .shstrtab
+
+         $ dump -o 0x1e274 -s 257 /bin/sh | sift -c 27 -t string
+
+         .shstrtab
+         .interp
+         .note.gnu.build-id
+         .note.ABI-tag
+         .gnu.hash
+         .dynsym
+         .dynstr
+         .gnu.version
+         .gnu.version_r
+         .rela.dyn
+         .rela.plt
+         .init
+         .plt.got
+         .text
+         .fini
+         .rodata
+         .eh_frame_hdr
+         .eh_frame
+         .init_array
+         .fini_array
+         .data.rel.ro
+         .dynamic
+         .data
+         .bss
+         .gnu_debuglink
+
+AUTHOR
+       Justin Swartz <justin.swartz@risingedge.co.za>
+
+SEE ALSO
+       dump(1)
+
+sift 0.1                           Mar 2025                            sift(1)

@@ -1,0 +1,133 @@
+.TH dump "1" "Mar 2025" "sift 0.1" "sift manual"
+
+.SH NAME
+dump \- dump raw or formatted data
+
+.SH SYNOPSIS
+\fBdump\fR [\fIOPTIONS\fR] FILE
+
+.SH DESCRIPTION
+.PP
+Print file data directly, or in a formatted dump representation, to standard output.
+
+.TP
+\fB\-o\fR \fIOFFSET\fR
+data offset
+
+.TP
+\fB\-s\fR \fISIZE\fR
+data size
+
+.TP
+\fB\-t\fR \fITYPE\fR
+output type:
+.PP
+.RS
+\fBr\fR raw 
+.RE
+.RS
+\fBf\fR formatted
+.RE
+
+.SH FORMAT OPTIONS
+.PP
+The following options apply only if \fB-t f\fR is specified.
+
+.TP
+\fB-fo\fR \fIFORMAT\fR
+offset format (default: "%08zx  ")
+
+.TP
+\fB-fv\fR \fIFORMAT\fR
+ordinal value format (default: "%02x ")
+
+.TP
+\fB-fs\fR \fIFORMAT\fR
+character symbol format (default: "%c")
+
+.TP
+\fB-w\fR \fIWIDTH\fR
+dump width (default: 16)
+
+.TP
+\fB-p\fR \fIFILENAME\fR
+palette filename (default: unset)
+
+.SH PALETTE
+.SS Byte Highlighting
+Ordinal values and character symbols may be highlighted if a valid palette is supplied.
+.SS Palette Format
+.TP
+A palette consists of one or more lines that feature the following, space separated, tokens:
+\&
+.RS
+first-byte-value
+.RE
+.RS
+last-byte-value
+.RE
+.RS
+highlight-prefix
+.RE
+
+.SS Palette Example
+.PP
+For illustration, ESC (oct: 33, dec: 27, hex: 1b) is represented as "^[".
+Be aware that the \fBhighlight-prefix\fR token is not subject to escape code expansion.
+
+.EX
+  $ cat /usr/local/share/sift/palette/256/sky-
+  0x00 0x00 ^[[38;5;238m
+  0x01 0x3f ^[[38;5;81m
+  0x40 0x7f ^[[38;5;39m
+  0x80 0xbf ^[[38;5;32m
+  0xc0 0xff ^[[38;5;25m
+.EE
+
+.SH EXAMPLES
+.PP
+Dump the first 64 bytes of a file, with hexadecimal formatting.
+
+.EX
+  $ dump -s 64 -t f /bin/sh
+  00000000  7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00  .ELF............
+  00000010  03 00 3e 00 01 00 00 00 70 47 00 00 00 00 00 00  ..>.....pG......
+  00000020  40 00 00 00 00 00 00 00 78 e3 01 00 00 00 00 00  @.......x.......
+  00000030  00 00 00 00 40 00 38 00 0b 00 40 00 1c 00 1b 00  ....@.8...@.....
+.EE
+
+.PP
+Print 3 bytes from offset 1 of a file directly to stdout.
+
+.EX
+  $ dump -o 1 -s 3 /bin/sh
+  ELF
+.EE
+
+.PP
+Dump an entire file, with octal offset and octal ordinal formatting, and an 8 byte width.
+
+.EX
+  $ dump -t f -fo "%06o " -fv "%03o " -w 8 /bin/kill
+  000000 220 101 130 101 131 111 203 371  .AXAYI..
+  000010 003 174 130 115 061 322 115 061  .|XM1.M1
+  000020 333 111 377 310 164 111 110 061  .I..tIH1
+  000030 300 110 061 311 136 254 074 055  .H1.^.<-
+  000040 164 017 350 025 000 000 000 111  t......I
+  000050 211 313 350 044 000 000 000 353  ...$....
+  000060 340 350 005 000 000 000 111 211  ......I.
+  000070 312 353 326 254 204 300 164 036  ......t.
+  000100 074 060 174 037 074 071 177 033  <0|.<9..
+  000110 054 060 110 153 311 012 110 001  ,0Hk..H.
+  000120 301 353 350 114 211 326 114 211  ...L..L.
+  000130 337 152 076 130 017 005 303 152  .j>X...j
+  000140 000 353 002 152 001 137 152 074  ...j._j<
+  000150 130 017 005                      X..
+
+.EE
+
+.SH AUTHOR
+Justin Swartz <justin.swartz@risingedge.co.za>
+
+.SH SEE ALSO
+sift(1)

@@ -1,0 +1,67 @@
+#!/bin/sh
+
+CFLAGS="-Wall -Werror -Wextra -pedantic -std=c99 ${CFLAGS}"
+
+CC="${CC:-cc}"
+CP="${CP:-cp -ap}"
+CHMOD="${CHMOD:-chmod}"
+PREFIX="${PREFIX:-/usr/local}"
+MKDIR="${MKDIR:-mkdir -p}"
+RM="${RM:-rm -f}"
+
+set -ex
+
+case "$1" in
+("")
+	${CC} -o bin/dump src/dump.c ${CFLAGS}
+	${CC} -o bin/sift src/sift.c ${CFLAGS}
+	;;
+
+(install)
+	$0 install-programs
+	$0 install-palettes
+	$0 install-manual
+	;;
+
+(install-programs)
+	${MKDIR} "${PREFIX}/bin/"
+	${CP} bin/dump bin/sift "${PREFIX}/bin/"
+	;;
+
+(install-palettes)
+	${CP} share/palette "${PREFIX}/share/sift/"
+	;;
+
+(install-manual)
+	${MKDIR} "${PREFIX}/share/man/man1/"
+	${CP} share/manual/dump.1 "${PREFIX}/man/man1/"
+	${CP} share/manual/sift.1 "${PREFIX}/man/man1/"
+	;;
+
+(uninstall)
+	$0 uninstall-programs
+	$0 uninstall-palettes
+	$0 uninstall-manual
+	;;
+
+(uninstall-programs)
+	${RM} "${PREFIX}/bin/dump" "${PREFIX}/bin/sift"
+	;;
+
+(uninstall-palettes)
+	${RM} -r "${PREFIX}/share/sift/palette"
+	;;
+
+(uninstall-manual)
+	${RM} "${PREFIX}/share/man/man1/dump.1"
+	${RM} "${PREFIX}/share/man/man1/sift.1"
+	;;
+
+(clean)
+	${RM} bin/dump bin/sift
+	;;
+
+(*)
+	exit 1
+	;;
+esac
