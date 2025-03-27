@@ -68,15 +68,14 @@ display()
 
 interpret()
 {
+	case "$(slice 5 1 uint8)" in
+	(1) UINT16=uint16le UINT64=uint64le ;;
+	(2) UINT16=uint16be UINT64=uint64be ;;
+	esac
+
 	member 0  4 "Magic"
 	member 4  1 "Class" "$(class 4 1)"
 	member 5  1 "Data" "$(data 5 1)"
-
-	case "$(slice 5 1 uint8)" in
-	(1) INT16=int16le INT64=int64le ;;
-	(2) INT16=int16be INT64=int64be ;;
-	esac
-
 	member 6  1 "Version"
 	member 7  1 "OS / ABI" "$(osabi 7 1)"
 	member 8  1 "ABI Version"
@@ -84,16 +83,16 @@ interpret()
 	member 16 2 "Object Type" "$(object 16 2)"
 	member 18 2 "Architecture" "$(machine 18 2)"
 	member 20 4 "File Version"
-	member 24 8 "Entry Point" $(slice 24 8 ${INT64} 0x%x)
-	member 32 8 "Program Header Table Offset" $(slice 32 8 ${INT64} 0x%x)
-	member 40 8 "Section Header Table Offset" $(slice 40 8 ${INT64} 0x%x)
+	member 24 8 "Entry Point" $(slice 24 8 ${UINT64} 0x%x)
+	member 32 8 "Program Header Table Offset" $(slice 32 8 ${UINT64} 0x%x)
+	member 40 8 "Section Header Table Offset" $(slice 40 8 ${UINT64} 0x%x)
 	member 48 4 "Processor-Specific Flags"
-	member 52 2 "ELF Header Size" $(slice 52 2 ${INT16})
-	member 54 2 "Program Header Size" $(slice 54 2 ${INT16})
-	member 56 2 "Program Header Count" $(slice 56 2 ${INT16})
-	member 58 2 "Section Header Size" $(slice 58 2 ${INT16})
-	member 60 2 "Section Header Count" $(slice 60 2 ${INT16})
-	member 62 2 "Section Name String Table Index" $(slice 62 2 ${INT16})
+	member 52 2 "ELF Header Size" $(slice 52 2 ${UINT16})
+	member 54 2 "Program Header Size" $(slice 54 2 ${UINT16})
+	member 56 2 "Program Header Count" $(slice 56 2 ${UINT16})
+	member 58 2 "Section Header Size" $(slice 58 2 ${UINT16})
+	member 60 2 "Section Header Count" $(slice 60 2 ${UINT16})
+	member 62 2 "Section Name String Table Index" $(slice 62 2 ${UINT16})
 }
 
 member()
@@ -166,7 +165,7 @@ osabi()
 object()
 {
 	local offset=$1 size=$2
-	local value=$(slice ${offset} ${size} ${INT16})
+	local value=$(slice ${offset} ${size} ${UINT16})
 
 	case "${value}" in
 	(1) printf "Relocatable" ;;
@@ -180,7 +179,7 @@ object()
 machine()
 {
 	local offset=$1 size=$2
-	local value=$(slice ${offset} ${size} ${INT16})
+	local value=$(slice ${offset} ${size} ${UINT16})
 
 	case "${value}" in
 	  (1) printf "AT&T WE 32100" ;;
