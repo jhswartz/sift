@@ -2,7 +2,9 @@
 
 # REFERENCES
 #
-#   man 5 elf
+#   https://man7.org/linux/man-pages/man5/elf.5.html
+#   https://refspecs.linuxfoundation.org/elf/elf.pdf
+#   https://gist.github.com/x0nu11byt3/bcb35c3de461e5fb66173071a2379779
 
 set -e
 
@@ -69,6 +71,12 @@ interpret()
 	member 0  4 "Magic"
 	member 4  1 "Class" "$(class 4 1)"
 	member 5  1 "Data" "$(data 5 1)"
+
+	case "$(slice 5 1 uint8)" in
+	(1) INT16=int16le INT64=int64le ;;
+	(2) INT16=int16be INT64=int64be ;;
+	esac
+
 	member 6  1 "Version"
 	member 7  1 "OS / ABI" "$(osabi 7 1)"
 	member 8  1 "ABI Version"
@@ -76,16 +84,16 @@ interpret()
 	member 16 2 "Object Type" "$(object 16 2)"
 	member 18 2 "Architecture" "$(machine 18 2)"
 	member 20 4 "File Version"
-	member 24 8 "Entry Point" $(slice 24 8 int64 0x%x)
-	member 32 8 "Program Header Table Offset" $(slice 32 8 int64 0x%x)
-	member 40 8 "Section Header Table Offset" $(slice 40 8 int64 0x%x)
+	member 24 8 "Entry Point" $(slice 24 8 ${INT64} 0x%x)
+	member 32 8 "Program Header Table Offset" $(slice 32 8 ${INT64} 0x%x)
+	member 40 8 "Section Header Table Offset" $(slice 40 8 ${INT64} 0x%x)
 	member 48 4 "Processor-Specific Flags"
-	member 52 2 "ELF Header Size" $(slice 52 2 int16)
-	member 54 2 "Program Header Size" $(slice 54 2 int16)
-	member 56 2 "Program Header Count" $(slice 56 2 int16)
-	member 58 2 "Section Header Size" $(slice 58 2 int16)
-	member 60 2 "Section Header Count" $(slice 60 2 int16)
-	member 62 2 "Section Name String Table Index" $(slice  62 2 int16)
+	member 52 2 "ELF Header Size" $(slice 52 2 ${INT16})
+	member 54 2 "Program Header Size" $(slice 54 2 ${INT16})
+	member 56 2 "Program Header Count" $(slice 56 2 ${INT16})
+	member 58 2 "Section Header Size" $(slice 58 2 ${INT16})
+	member 60 2 "Section Header Count" $(slice 60 2 ${INT16})
+	member 62 2 "Section Name String Table Index" $(slice 62 2 ${INT16})
 }
 
 member()
@@ -110,7 +118,7 @@ member()
 class()
 {
 	local offset=$1 size=$2
-	local value=$(slice ${offset} ${size} int8)
+	local value=$(slice ${offset} ${size} uint8)
 
 	case "${value}" in
 	(1) printf "32-bit" ;;
@@ -122,7 +130,7 @@ class()
 data()
 {
 	local offset=$1 size=$2
-	local value=$(slice ${offset} ${size} int8)
+	local value=$(slice ${offset} ${size} uint8)
 
 	case "${value}" in
 	(1) printf "Little Endian" ;;
@@ -134,7 +142,7 @@ data()
 osabi()
 {
 	local offset=$1 size=$2
-	local value=$(slice ${offset} ${size} int8)
+	local value=$(slice ${offset} ${size} uint8)
 
 	case "${value}" in
 	  (0) printf "UNIX System V" ;;
@@ -158,7 +166,7 @@ osabi()
 object()
 {
 	local offset=$1 size=$2
-	local value=$(slice ${offset} ${size} int16)
+	local value=$(slice ${offset} ${size} ${INT16})
 
 	case "${value}" in
 	(1) printf "Relocatable" ;;
@@ -172,7 +180,7 @@ object()
 machine()
 {
 	local offset=$1 size=$2
-	local value=$(slice ${offset} ${size} int16)
+	local value=$(slice ${offset} ${size} ${INT16})
 
 	case "${value}" in
 	  (1) printf "AT&T WE 32100" ;;
@@ -360,7 +368,9 @@ machine()
 slice()
 {
 	local offset=$1 size=$2 type=$3 format=${4:-%d}
-	dump -o ${offset} -s ${size} "${OBJECT}"|sift -f "${format}" -t ${type}
+
+	dump -o ${offset} -s ${size} "${OBJECT}" | \
+	sift -f "${format}" -t ${type}
 }
 
 main "$@"
