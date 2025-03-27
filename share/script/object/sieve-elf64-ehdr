@@ -221,7 +221,7 @@ machine()
 	 (53) printf "Motorola M68HC12" ;;
 	 (54) printf "Fujitsu Multimedia Accelerator" ;;
 	 (55) printf "Siemens PCP" ;;
-	 (56) printf "Sony nCPU embeeded RISC" ;;
+	 (56) printf "Sony nCPU embedded RISC" ;;
 	 (57) printf "Denso NDR1" ;;
 	 (58) printf "Motorola Start*Core" ;;
 	 (59) printf "Toyota ME16" ;;
