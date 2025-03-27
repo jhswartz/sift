@@ -18,21 +18,21 @@ set -e
 
 usage()
 {
-	printf "usage: dump-gzip [ -i ] FILE\n"
+	printf "usage: sieve-gzip [ -i ] FILE\n"
 }
 
 main()
 {
 	case "$#" in
 	(1)
-		FILE=$1 FILE_SIZE=$(wc -c < "$1")
+		FILE=$1 SIZE=$(wc -c < "$1")
 		display
 		;;
 
 	(2)
 		case "$1" in
 		("-i")
-			FILE=$2 FILE_SIZE=$(wc -c < "$2")
+			FILE=$2 SIZE=$(wc -c < "$2")
 			interpret
 			;;
 
@@ -59,8 +59,8 @@ display()
 	member 8 1 "XFL"
 	member 9 1 "OS"
 
-	member $((${FILE_SIZE} - 8)) 4 "CRC32"
-	member $((${FILE_SIZE} - 4)) 4 "ISIZE"
+	member $(($SIZE - 8)) 4 "CRC32"
+	member $(($SIZE - 4)) 4 "ISIZE"
 }
 
 interpret()
@@ -72,9 +72,8 @@ interpret()
 	member 8 1 "Extra Flags" "$(xfl 2 1 8 1)"
 	member 9 1 "Operating System" "$(os 9 1)"
 
-	member $((${FILE_SIZE} - 8)) 4 "CRC32"
-	member $((${FILE_SIZE} - 4)) 4 "Uncompressed Size" \
-	       "$(isize $((${FILE_SIZE} - 4)) 4)"
+	member $(($SIZE - 8)) 4 "CRC32"
+	member $(($SIZE - 4)) 4 "Uncompressed Size" "$(isize $(($SIZE - 4)) 4)"
 }
 
 member()
