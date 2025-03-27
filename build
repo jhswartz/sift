@@ -20,6 +20,7 @@ case "$1" in
 (install)
 	$0 install-programs
 	$0 install-palettes
+	$0 install-scripts
 	$0 install-manual
 	;;
 
@@ -32,6 +33,10 @@ case "$1" in
 	${CP} share/palette "${PREFIX}/share/sift/"
 	;;
 
+(install-scripts)
+	${CP} share/script "${PREFIX}/share/sift/"
+	;;
+
 (install-manual)
 	${MKDIR} "${PREFIX}/share/man/man1/"
 	${CP} share/manual/dump.1 "${PREFIX}/man/man1/"
@@ -41,6 +46,7 @@ case "$1" in
 (uninstall)
 	$0 uninstall-programs
 	$0 uninstall-palettes
+	$0 uninstall-scripts
 	$0 uninstall-manual
 	;;
 
@@ -50,6 +56,10 @@ case "$1" in
 
 (uninstall-palettes)
 	${RM} -r "${PREFIX}/share/sift/palette"
+	;;
+
+(uninstall-scripts)
+	${RM} -r "${PREFIX}/share/sift/script"
 	;;
 
 (uninstall-manual)

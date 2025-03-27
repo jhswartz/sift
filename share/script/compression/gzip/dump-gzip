@@ -1,0 +1,237 @@
+#!/bin/sh
+
+# REFERENCES
+#
+#   https://forensics.wiki/gzip/
+#   https://www.ietf.org/rfc/rfc1952.txt
+#   https://git.savannah.gnu.org/cgit/gzip.git/tree/gzip.h
+
+MAGIC=$((0x8b1f))
+
+STORED=0
+COMPRESSED=1
+PACKED=2
+LZH=3
+DEFLATE=8
+
+set -e
+
+usage()
+{
+	printf "usage: dump-gzip [ -i ] FILE\n"
+}
+
+main()
+{
+	case "$#" in
+	(1)
+		FILE=$1 FILE_SIZE=$(wc -c < "$1")
+		display
+		;;
+
+	(2)
+		case "$1" in
+		("-i")
+			FILE=$2 FILE_SIZE=$(wc -c < "$2")
+			interpret
+			;;
+
+		(*)
+			usage
+			exit 1
+			;;
+		esac
+		;;
+
+	(*)
+		usage
+		exit 1
+		;;
+	esac
+}
+
+display()
+{
+	member 0 2 "ID"
+	member 2 1 "CM"
+	member 3 1 "FLG"
+	member 4 4 "MTIME"
+	member 8 1 "XFL"
+	member 9 1 "OS"
+
+	member $((${FILE_SIZE} - 8)) 4 "CRC32"
+	member $((${FILE_SIZE} - 4)) 4 "ISIZE"
+}
+
+interpret()
+{
+	member 0 2 "Identification" "$(id 0 2)" 
+	member 2 1 "Compression Method" "$(cm 2 1)" 
+	member 3 1 "Flags" "$(flg 3 1)"
+	member 4 4 "Modification Time" "$(mtime 4 4)"
+	member 8 1 "Extra Flags" "$(xfl 2 1 8 1)"
+	member 9 1 "Operating System" "$(os 9 1)"
+
+	member $((${FILE_SIZE} - 8)) 4 "CRC32"
+	member $((${FILE_SIZE} - 4)) 4 "Uncompressed Size" \
+	       "$(isize $((${FILE_SIZE} - 4)) 4)"
+}
+
+member()
+{
+	local offset=$1 size=$2 label=$3 value=$4 palette=
+
+	if [ -z "${value}" ]
+	then
+		printf "${label}\n"
+	else
+		printf "${label}: %s\n" "${value}"
+	fi
+
+	if [ -n "${PALETTE}" ]
+	then
+		palette="-p ${PALETTE}"
+	fi
+
+	dump -o ${offset} -s ${size} -t f ${palette} "${FILE}"
+}
+
+id()
+{
+	local offset=$1 size=$2
+	local value=$(slice ${offset} ${size} uint16le)
+
+	case "${value}" in
+	(${MAGIC}) printf "gzip" ;;
+	(*)        printf "Unknown" ;;
+	esac
+}
+
+cm()
+{
+	local offset=$1 size=$2
+	local value=$(slice ${offset} ${size} uint8)
+
+	case "${value}" in
+	(${STORED})     printf "Stored" ;;
+	(${COMPRESSED}) printf "Compressed" ;;
+	(${PACKED})     printf "Packed" ;;
+	(${LZH})        printf "LZH" ;;
+	(${DEFLATE})    printf "DEFLATE" ;;
+	(*)             printf "Unknown" ;;
+	esac
+}
+
+flg()
+{
+	local offset=$1 size=$2
+	local value=$(slice ${offset} ${size} uint8)
+
+	local flags=
+
+	if [ $((${value} & 1)) -ne 0 ]
+	then
+		flags="${flags}FTEXT "
+	fi
+
+	if [ $((${value} & 2)) -ne 0 ]
+	then
+		flags="${flags}FHCRC "
+	fi
+
+	if [ $((${value} & 4)) -ne 0 ]
+	then
+		flags="${flags}FEXTRA "
+	fi
+
+	if [ $((${value} & 8)) -ne 0 ]
+	then
+		flags="${flags}FNAME "
+	fi
+
+	if [ $((${value} & 16)) -ne 0 ]
+	then
+		flags="${flags}FCOMMENT "
+	fi
+
+	if [ -z "${flags}" ]
+	then
+		flags="None"
+	fi
+
+	printf "${flags}"
+}
+
+xfl()
+{
+	local cm_offset=$1 cm_size=$2 xfl_offset=$3 xfl_size=$4
+
+	local cm=$(slice ${cm_offset} ${cm_size} uint8)
+	local value=$(slice ${xfl_offset} ${xfl_size} uint8)
+
+	if [ ${cm} -eq ${DEFLATE} ]
+	then
+		case "${value}" in
+		(0)
+			printf "None"
+			return
+			;;
+		(2)
+			printf "Maximum Compression"
+			return
+			;;
+		(4)
+			printf "Fastest Algorithm"
+			return
+			;;
+		esac
+	fi
+
+	printf "Unknown"
+}
+
+mtime()
+{
+	local offset=$1 size=$2
+	local value=$(slice ${offset} ${size} uint32le)
+
+	date -d "@${value}" +%c
+}
+
+os()
+{
+	local offset=$1 size=$2
+	local value=$(slice ${offset} ${size} uint8)
+
+	case "${value}" in
+	(0)  printf "FAT filesystem" ;;
+	(1)  printf "Amiga" ;;
+	(2)  printf "VMS / OpenVMS" ;;
+	(3)  printf "Unix" ;;
+	(4)  printf "VM/CMS" ;;
+	(5)  printf "Atari TOS" ;;
+	(6)  printf "HPFS filesystem" ;;
+	(7)  printf "Apple" ;;
+	(8)  printf "z/OS" ;;
+	(9)  printf "CP/M" ;;
+	(10) printf "TOPS-20" ;;
+	(11) printf "NTFS filesystem" ;;
+	(12) printf "QDOS" ;;
+	(13) printf "RISC/OS" ;;
+	(*)  printf "Unknown" ;;
+	esac
+}
+
+isize()
+{
+	local offset=$1 size=$2
+	slice ${offset} ${size} uint32le "%u bytes"
+}
+
+slice()
+{
+	local offset=$1 size=$2 type=$3 format=${4:-%d}
+	dump -o ${offset} -s ${size} "${FILE}" | sift -f "${format}" -t ${type}
+}
+
+main "$@"
