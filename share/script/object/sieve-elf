@@ -22,19 +22,38 @@ set -e
 
 usage()
 {
-	printf "usage: sieve-elf-ehdr [ -i ] OBJECT\n"
+	printf "usage: sieve-elf OPTIONS\n"
+	printf "\n"
+	printf "OPTIONS\n"
+	printf "\n"
+	printf "  -i         Interpret member values\n"
+	printf "  -f FILE    Object file\n"
+	printf "\n"
 }
 
 main()
 {
-	local operation=
+	local operation=ehdr_display
 
-	case "$#" in
-	(2)
-		case "$1" in
+	while [ $# -gt 0 ]
+	do
+		local option=$1
+		shift 1
+
+		case "${option}" in
 		("-i")
-			OBJECT=$2
-			operation=interpret
+			operation=ehdr_interpret
+			;;
+
+		("-f")
+			if [ $# -eq 0 ]
+			then
+				usage
+				exit 1
+			fi
+
+			OBJECT=$1
+			shift 1
 			;;
 
 		(*)
@@ -42,18 +61,20 @@ main()
 			exit 1
 			;;
 		esac
-		;;
+	done
 
-	(1)
-		OBJECT=$1
-		operation=display
-		;;
-		
-	(*)
+	if [ -z "${OBJECT}" ]
+	then
 		usage
 		exit 1
-		;;
-	esac
+	fi
+
+	perform "${operation}"
+}
+
+perform()
+{
+	local operation=$1
 
 	case "$(slice ${EI_CLASS} ${EI_CLASS_SIZE} uint8)" in
 	(${ELFCLASS32})
@@ -78,7 +99,7 @@ main()
 	${PREFIX}_${operation}
 }
 
-elf32_display()
+elf32_ehdr_display()
 {
 	member 0  4 "ei_magic"
 	member 4  1 "ei_class"
@@ -102,7 +123,7 @@ elf32_display()
 	member 58 2 "e_shstrndx"
 }
 
-elf64_display()
+elf64_ehdr_display()
 {
 	member 0  4 "ei_magic"
 	member 4  1 "ei_class"
@@ -126,17 +147,17 @@ elf64_display()
 	member 62 2 "e_shstrndx"
 }
 
-elf32_interpret()
+elf32_ehdr_interpret()
 {
 	member 0  4 "Magic"
-	member 4  1 "Class" "$(class 4 1)"
-	member 5  1 "Data" "$(data 5 1)"
+	member 4  1 "Class" "$(ehdr_class 4 1)"
+	member 5  1 "Data" "$(ehdr_data 5 1)"
 	member 6  1 "Version"
-	member 7  1 "OS / ABI" "$(osabi 7 1)"
+	member 7  1 "OS / ABI" "$(ehdr_osabi 7 1)"
 	member 8  1 "ABI Version"
 	member 9  7 "Padding"
-	member 16 2 "Object Type" "$(object 16 2)"
-	member 18 2 "Architecture" "$(machine 18 2)"
+	member 16 2 "Object Type" "$(ehdr_object 16 2)"
+	member 18 2 "Architecture" "$(ehdr_machine 18 2)"
 	member 20 4 "File Version"
 	member 24 4 "Entry Point" $(slice 24 4 ${UINT} 0x%x)
 	member 28 4 "Program Header Table Offset" $(slice 28 4 ${UINT} 0x%x)
@@ -150,17 +171,17 @@ elf32_interpret()
 	member 58 2 "Section Name String Table Index" $(slice 58 2 ${UINT16})
 }
 
-elf64_interpret()
+elf64_ehdr_interpret()
 {
 	member 0  4 "Magic"
-	member 4  1 "Class" "$(class 4 1)"
-	member 5  1 "Data" "$(data 5 1)"
+	member 4  1 "Class" "$(ehdr_class 4 1)"
+	member 5  1 "Data" "$(ehdr_data 5 1)"
 	member 6  1 "Version"
-	member 7  1 "OS / ABI" "$(osabi 7 1)"
+	member 7  1 "OS / ABI" "$(ehdr_osabi 7 1)"
 	member 8  1 "ABI Version"
 	member 9  7 "Padding"
-	member 16 2 "Object Type" "$(object 16 2)"
-	member 18 2 "Architecture" "$(machine 18 2)"
+	member 16 2 "Object Type" "$(ehdr_object 16 2)"
+	member 18 2 "Architecture" "$(ehdr_machine 18 2)"
 	member 20 4 "File Version"
 	member 24 8 "Entry Point" $(slice 24 8 ${UINT} 0x%x)
 	member 32 8 "Program Header Table Offset" $(slice 32 8 ${UINT} 0x%x)
@@ -193,7 +214,7 @@ member()
 	dump -o ${offset} -s ${size} -t f ${palette} "${OBJECT}"
 }
 
-class()
+ehdr_class()
 {
 	local offset=$1 size=$2
 	local value=$(slice ${offset} ${size} uint8)
@@ -205,7 +226,7 @@ class()
 	esac
 }
 
-data()
+ehdr_data()
 {
 	local offset=$1 size=$2
 	local value=$(slice ${offset} ${size} uint8)
@@ -217,7 +238,7 @@ data()
 	esac
 }
 
-osabi()
+ehdr_osabi()
 {
 	local offset=$1 size=$2
 	local value=$(slice ${offset} ${size} uint8)
@@ -241,7 +262,7 @@ osabi()
 	esac
 }
 
-object()
+ehdr_object()
 {
 	local offset=$1 size=$2
 	local value=$(slice ${offset} ${size} ${UINT16})
@@ -255,7 +276,7 @@ object()
 	esac
 }
 
-machine()
+ehdr_machine()
 {
 	local offset=$1 size=$2
 	local value=$(slice ${offset} ${size} ${UINT16})
