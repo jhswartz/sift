@@ -6,17 +6,66 @@
 #   https://refspecs.linuxfoundation.org/elf/elf.pdf
 #   https://gist.github.com/x0nu11byt3/bcb35c3de461e5fb66173071a2379779
 
-EI_CLASS=4
-EI_CLASS_SIZE=1
+ELFCLASS32=1           ELFCLASS64=2
+ELFDATA2LSB=1          ELFDATA2MSB=2
 
-ELFCLASS32=1
-ELFCLASS64=2
+EI_MAGIC=0             EI_MAGIC_SIZE=4
+EI_CLASS=4             EI_CLASS_SIZE=1
+EI_DATA=5              EI_DATA_SIZE=1
+EI_VERSION=6           EI_VERSION_SIZE=1
+EI_OSABI=7             EI_OSABI_SIZE=1
+EI_ABIVERSION=8        EI_ABIVERSION_SIZE=1
+EI_PAD=9               EI_PAD_SIZE=7
 
-EI_DATA=5
-EI_DATA_SIZE=1
+ELF32_TYPE=16          ELF32_TYPE_SIZE=2
+ELF32_MACHINE=18       ELF32_MACHINE_SIZE=2
+ELF32_VERSION=20       ELF32_VERSION_SIZE=4
+ELF32_ENTRY=24         ELF32_ENTRY_SIZE=4
+ELF32_PHOFF=28         ELF32_PHOFF_SIZE=4
+ELF32_SHOFF=32         ELF32_SHOFF_SIZE=4
+ELF32_FLAGS=36         ELF32_FLAGS_SIZE=4
+ELF32_EHSIZE=40        ELF32_EHSIZE_SIZE=2
+ELF32_PHENTSIZ=42      ELF32_PHENTSIZ_SIZE=2
+ELF32_PHNUM=44         ELF32_PHNUM_SIZE=2
+ELF32_SHENTSIZ=46      ELF32_SHENTSIZ_SIZE=2
+ELF32_SHNUM=48         ELF32_SHNUM_SIZE=2
+ELF32_SHSTRNDX=50      ELF32_SHSTRNDX_SIZE=2
 
-ELFDATA2LSB=1
-ELFDATA2MSB=2
+ELF64_TYPE=16          ELF64_TYPE_SIZE=2
+ELF64_MACHINE=18       ELF64_MACHINE_SIZE=2
+ELF64_VERSION=20       ELF64_VERSION_SIZE=4
+ELF64_ENTRY=24         ELF64_ENTRY_SIZE=8
+ELF64_PHOFF=32         ELF64_PHOFF_SIZE=8
+ELF64_SHOFF=40         ELF64_SHOFF_SIZE=8
+ELF64_FLAGS=48         ELF64_FLAGS_SIZE=4
+ELF64_EHSIZE=52        ELF64_EHSIZE_SIZE=2
+ELF64_PHENTSIZ=54      ELF64_PHENTSIZ_SIZE=2
+ELF64_PHNUM=56         ELF64_PHNUM_SIZE=2
+ELF64_SHENTSIZ=58      ELF64_SHENTSIZ_SIZE=2
+ELF64_SHNUM=60         ELF64_SHNUM_SIZE=2
+ELF64_SHSTRNDX=62      ELF64_SHSTRNDX_SIZE=2
+
+ELF32_SH_NAME=0        ELF32_SH_NAME_SIZE=4
+ELF32_SH_TYPE=4        ELF32_SH_TYPE_SIZE=4
+ELF32_SH_FLAGS=8       ELF32_SH_FLAGS_SIZE=4
+ELF32_SH_ADDR=12       ELF32_SH_ADDR_SIZE=4
+ELF32_SH_OFFSET=16     ELF32_SH_OFFSET_SIZE=4
+ELF32_SH_SIZE=20       ELF32_SH_SIZE_SIZE=4
+ELF32_SH_LINK=24       ELF32_SH_LINK_SIZE=4
+ELF32_SH_INFO=28       ELF32_SH_INFO_SIZE=4
+ELF32_SH_ADDRALIGN=32  ELF32_SH_ADDRALIGN_SIZE=4
+ELF32_SH_ENTSIZE=36    ELF32_SH_ENTSIZE_SIZE=4
+
+ELF64_SH_NAME=0        ELF64_SH_NAME_SIZE=4
+ELF64_SH_TYPE=4        ELF64_SH_TYPE_SIZE=4
+ELF64_SH_FLAGS=8       ELF64_SH_FLAGS_SIZE=8
+ELF64_SH_ADDR=16       ELF64_SH_ADDR_SIZE=8
+ELF64_SH_OFFSET=24     ELF64_SH_OFFSET_SIZE=8
+ELF64_SH_SIZE=32       ELF64_SH_SIZE_SIZE=8
+ELF64_SH_LINK=40       ELF64_SH_LINK_SIZE=4
+ELF64_SH_INFO=44       ELF64_SH_INFO_SIZE=4
+ELF64_SH_ADDRALIGN=48  ELF64_SH_ADDRALIGN_SIZE=8
+ELF64_SH_ENTSIZE=56    ELF64_SH_ENTSIZE_SIZE=8
 
 set -e
 
@@ -26,14 +75,22 @@ usage()
 	printf "\n"
 	printf "OPTIONS\n"
 	printf "\n"
-	printf "  -i         Interpret member values\n"
-	printf "  -f FILE    Object file\n"
+	printf "  -i                 Interpret member values\n"
+	printf "  -s TYPE [INDEX]    Structure type\n"
+	printf "  -f FILE            Object file\n"
+	printf "\n"
+	printf "STRUCTURE TYPES\n"
+	printf "\n"
+	printf "  ehdr               ELF Header (default)\n"
+	printf "  shdr [INDEX]       ELF Section Header\n"
 	printf "\n"
 }
 
 main()
 {
-	local operation=ehdr_display
+	local operation=display
+	local structure=ehdr
+	local index=0
 
 	while [ $# -gt 0 ]
 	do
@@ -42,7 +99,40 @@ main()
 
 		case "${option}" in
 		("-i")
-			operation=ehdr_interpret
+			operation=interpret
+			;;
+
+		("-s")
+			if [ $# -eq 0 ]
+			then
+				usage
+				exit 1
+			fi
+
+			structure=$1
+			shift 1
+
+			case "${structure}" in
+			("ehdr")
+				;;
+
+			("shdr")
+				if [ $# -eq 0 ]
+				then
+					usage
+					exit 1
+				fi
+
+				index=$1
+				shift 1
+				;;
+
+			(*)
+				usage
+				exit 1
+				;;
+
+			esac
 			;;
 
 		("-f")
@@ -69,130 +159,140 @@ main()
 		exit 1
 	fi
 
-	perform "${operation}"
+	detect_target
+
+	${structure}_${operation} ${index}
 }
 
-perform()
+detect_target()
 {
-	local operation=$1
-
 	case "$(slice ${EI_CLASS} ${EI_CLASS_SIZE} uint8)" in
 	(${ELFCLASS32})
 		case "$(slice ${EI_DATA} ${EI_DATA_SIZE} uint8)" in
-		(${ELFDATA2LSB}) UINT16=int16le UINT=int32le ;;
-		(${ELFDATA2MSB}) UINT16=int16be UINT=int32be ;;
+		(${ELFDATA2LSB})
+			UINT16=uint16le UINT32=uint32le UINT=uint32le
+			;;
+		(${ELFDATA2MSB})
+			UINT16=uint16be UINT32=uint32be UINT=uint32be
+			;;
 		esac
 
-		PREFIX=elf32
+		ELF_TYPE=${ELF32_TYPE}
+		ELF_TYPE_SIZE=${ELF32_TYPE_SIZE}
+		ELF_MACHINE=${ELF32_MACHINE}
+		ELF_MACHINE_SIZE=${ELF32_MACHINE_SIZE}
+		ELF_VERSION=${ELF32_VERSION}
+		ELF_VERSION_SIZE=${ELF32_VERSION_SIZE}
+		ELF_ENTRY=${ELF32_ENTRY}
+		ELF_ENTRY_SIZE=${ELF32_ENTRY_SIZE}
+		ELF_PHOFF=${ELF32_PHOFF}
+		ELF_PHOFF_SIZE=${ELF32_PHOFF_SIZE}
+		ELF_SHOFF=${ELF32_SHOFF}
+		ELF_SHOFF_SIZE=${ELF32_SHOFF_SIZE}
+		ELF_FLAGS=${ELF32_FLAGS}
+		ELF_FLAGS_SIZE=${ELF32_FLAGS_SIZE}
+		ELF_EHSIZE=${ELF32_EHSIZE}
+		ELF_EHSIZE_SIZE=${ELF32_EHSIZE_SIZE}
+		ELF_PHENTSIZ=${ELF32_PHENTSIZ}
+		ELF_PHENTSIZ_SIZE=${ELF32_PHENTSIZ_SIZE}
+		ELF_PHNUM=${ELF32_PHNUM}
+		ELF_PHNUM_SIZE=${ELF32_PHNUM_SIZE}
+		ELF_SHENTSIZ=${ELF32_SHENTSIZ}
+		ELF_SHENTSIZ_SIZE=${ELF32_SHENTSIZ_SIZE}
+		ELF_SHNUM=${ELF32_SHNUM}
+		ELF_SHNUM_SIZE=${ELF32_SHNUM_SIZE}
+		ELF_SHSTRNDX=${ELF32_SHSTRNDX}
+		ELF_SHSTRNDX_SIZE=${ELF32_SHSTRNDX_SIZE}
+
+		ELF_SH_NAME=${ELF32_SH_NAME}
+		ELF_SH_NAME_SIZE=${ELF32_SH_NAME_SIZE}
+		ELF_SH_TYPE=${ELF32_SH_TYPE}
+		ELF_SH_TYPE_SIZE=${ELF32_SH_TYPE_SIZE}
+		ELF_SH_FLAGS=${ELF32_SH_FLAGS}
+		ELF_SH_FLAGS_SIZE=${ELF32_SH_FLAGS_SIZE}
+		ELF_SH_ADDR=${ELF32_SH_ADDR}
+		ELF_SH_ADDR_SIZE=${ELF32_SH_ADDR_SIZE}
+		ELF_SH_OFFSET=${ELF32_SH_OFFSET}
+		ELF_SH_OFFSET_SIZE=${ELF32_SH_OFFSET_SIZE}
+		ELF_SH_SIZE=${ELF32_SH_SIZE}
+		ELF_SH_SIZE_SIZE=${ELF32_SH_SIZE_SIZE}
+		ELF_SH_LINK=${ELF32_SH_LINK}
+		ELF_SH_LINK_SIZE=${ELF32_SH_LINK_SIZE}
+		ELF_SH_INFO=${ELF32_SH_INFO}
+		ELF_SH_INFO_SIZE=${ELF32_SH_INFO_SIZE}
+		ELF_SH_ADDRALIGN=${ELF32_SH_ADDRALIGN}
+		ELF_SH_ADDRALIGN_SIZE=${ELF32_SH_ADDRALIGN_SIZE}
+		ELF_SH_ENTSIZE=${ELF32_SH_ENTSIZE}
+		ELF_SH_ENTSIZE_SIZE=${ELF32_SH_ENTSIZE_SIZE}
 		;;
 
 	(${ELFCLASS64})
 		case "$(slice ${EI_DATA} ${EI_DATA_SIZE} uint8)" in
-		(${ELFDATA2LSB}) UINT16=int16le UINT=int64le ;;
-		(${ELFDATA2MSB}) UINT16=int16be UINT=int64be ;;
+		(${ELFDATA2LSB})
+			UINT16=uint16le UINT32=uint32le UINT=uint64le
+			;;
+		(${ELFDATA2MSB})
+			UINT16=uint16be UINT32=uint32be UINT=uint64be
+			;;
 		esac
 
-		PREFIX=elf64
+		ELF_TYPE=${ELF64_TYPE}
+		ELF_TYPE_SIZE=${ELF64_TYPE_SIZE}
+		ELF_MACHINE=${ELF64_MACHINE}
+		ELF_MACHINE_SIZE=${ELF64_MACHINE_SIZE}
+		ELF_VERSION=${ELF64_VERSION}
+		ELF_VERSION_SIZE=${ELF64_VERSION_SIZE}
+		ELF_ENTRY=${ELF64_ENTRY}
+		ELF_ENTRY_SIZE=${ELF64_ENTRY_SIZE}
+		ELF_PHOFF=${ELF64_PHOFF}
+		ELF_PHOFF_SIZE=${ELF64_PHOFF_SIZE}
+		ELF_SHOFF=${ELF64_SHOFF}
+		ELF_SHOFF_SIZE=${ELF64_SHOFF_SIZE}
+		ELF_FLAGS=${ELF64_FLAGS}
+		ELF_FLAGS_SIZE=${ELF64_FLAGS_SIZE}
+		ELF_EHSIZE=${ELF64_EHSIZE}
+		ELF_EHSIZE_SIZE=${ELF64_EHSIZE_SIZE}
+		ELF_PHENTSIZ=${ELF64_PHENTSIZ}
+		ELF_PHENTSIZ_SIZE=${ELF64_PHENTSIZ_SIZE}
+		ELF_PHNUM=${ELF64_PHNUM}
+		ELF_PHNUM_SIZE=${ELF64_PHNUM_SIZE}
+		ELF_SHENTSIZ=${ELF64_SHENTSIZ}
+		ELF_SHENTSIZ_SIZE=${ELF64_SHENTSIZ_SIZE}
+		ELF_SHNUM=${ELF64_SHNUM}
+		ELF_SHNUM_SIZE=${ELF64_SHNUM_SIZE}
+		ELF_SHSTRNDX=${ELF64_SHSTRNDX}
+		ELF_SHSTRNDX_SIZE=${ELF64_SHSTRNDX_SIZE}
+
+		ELF_SH_NAME=${ELF64_SH_NAME}
+		ELF_SH_NAME_SIZE=${ELF64_SH_NAME_SIZE}
+		ELF_SH_TYPE=${ELF64_SH_TYPE}
+		ELF_SH_TYPE_SIZE=${ELF64_SH_TYPE_SIZE}
+		ELF_SH_FLAGS=${ELF64_SH_FLAGS}
+		ELF_SH_FLAGS_SIZE=${ELF64_SH_FLAGS_SIZE}
+		ELF_SH_ADDR=${ELF64_SH_ADDR}
+		ELF_SH_ADDR_SIZE=${ELF64_SH_ADDR_SIZE}
+		ELF_SH_OFFSET=${ELF64_SH_OFFSET}
+		ELF_SH_OFFSET_SIZE=${ELF64_SH_OFFSET_SIZE}
+		ELF_SH_SIZE=${ELF64_SH_SIZE}
+		ELF_SH_SIZE_SIZE=${ELF64_SH_SIZE_SIZE}
+		ELF_SH_LINK=${ELF64_SH_LINK}
+		ELF_SH_LINK_SIZE=${ELF64_SH_LINK_SIZE}
+		ELF_SH_INFO=${ELF64_SH_INFO}
+		ELF_SH_INFO_SIZE=${ELF64_SH_INFO_SIZE}
+		ELF_SH_ADDRALIGN=${ELF64_SH_ADDRALIGN}
+		ELF_SH_ADDRALIGN_SIZE=${ELF64_SH_ADDRALIGN_SIZE}
+		ELF_SH_ENTSIZE=${ELF64_SH_ENTSIZE}
+		ELF_SH_ENTSIZE_SIZE=${ELF64_SH_ENTSIZE_SIZE}
 		;;
 	esac
-
-	${PREFIX}_${operation}
 }
 
-elf32_ehdr_display()
+slice()
 {
-	member 0  4 "ei_magic"
-	member 4  1 "ei_class"
-	member 5  1 "ei_data"
-	member 6  1 "ei_version"
-	member 7  1 "ei_osabi"
-	member 8  1 "ei_abiversion"
-	member 9  7 "ei_pad"
-	member 16 2 "e_type"
-	member 18 2 "e_machine"
-	member 20 4 "e_version"
-	member 24 4 "e_entry"
-	member 28 4 "e_phoff"
-	member 32 4 "e_shoff"
-	member 36 4 "e_flags"
-	member 40 2 "e_ehsize"
-	member 42 2 "e_phentsiz"
-	member 44 2 "e_phnum"
-	member 46 2 "e_shentsiz"
-	member 48 2 "e_shnum"
-	member 58 2 "e_shstrndx"
-}
+	local offset=$1 size=$2 type=$3 format=${4:-%d}
 
-elf64_ehdr_display()
-{
-	member 0  4 "ei_magic"
-	member 4  1 "ei_class"
-	member 5  1 "ei_data"
-	member 6  1 "ei_version"
-	member 7  1 "ei_osabi"
-	member 8  1 "ei_abiversion"
-	member 9  7 "ei_pad"
-	member 16 2 "e_type"
-	member 18 2 "e_machine"
-	member 20 4 "e_version"
-	member 24 8 "e_entry"
-	member 32 8 "e_phoff"
-	member 40 8 "e_shoff"
-	member 48 4 "e_flags"
-	member 52 2 "e_ehsize"
-	member 54 2 "e_phentsiz"
-	member 56 2 "e_phnum"
-	member 58 2 "e_shentsiz"
-	member 60 2 "e_shnum"
-	member 62 2 "e_shstrndx"
-}
-
-elf32_ehdr_interpret()
-{
-	member 0  4 "Magic"
-	member 4  1 "Class" "$(ehdr_class 4 1)"
-	member 5  1 "Data" "$(ehdr_data 5 1)"
-	member 6  1 "Version"
-	member 7  1 "OS / ABI" "$(ehdr_osabi 7 1)"
-	member 8  1 "ABI Version"
-	member 9  7 "Padding"
-	member 16 2 "Object Type" "$(ehdr_object 16 2)"
-	member 18 2 "Architecture" "$(ehdr_machine 18 2)"
-	member 20 4 "File Version"
-	member 24 4 "Entry Point" $(slice 24 4 ${UINT} 0x%x)
-	member 28 4 "Program Header Table Offset" $(slice 28 4 ${UINT} 0x%x)
-	member 32 4 "Section Header Table Offset" $(slice 32 4 ${UINT} 0x%x)
-	member 36 4 "Processor-Specific Flags"
-	member 40 2 "ELF Header Size" $(slice 40 2 ${UINT16})
-	member 42 2 "Program Header Size" $(slice 42 2 ${UINT16})
-	member 44 2 "Program Header Count" $(slice 44 2 ${UINT16})
-	member 46 2 "Section Header Size" $(slice 46 2 ${UINT16})
-	member 48 2 "Section Header Count" $(slice 48 2 ${UINT16})
-	member 58 2 "Section Name String Table Index" $(slice 58 2 ${UINT16})
-}
-
-elf64_ehdr_interpret()
-{
-	member 0  4 "Magic"
-	member 4  1 "Class" "$(ehdr_class 4 1)"
-	member 5  1 "Data" "$(ehdr_data 5 1)"
-	member 6  1 "Version"
-	member 7  1 "OS / ABI" "$(ehdr_osabi 7 1)"
-	member 8  1 "ABI Version"
-	member 9  7 "Padding"
-	member 16 2 "Object Type" "$(ehdr_object 16 2)"
-	member 18 2 "Architecture" "$(ehdr_machine 18 2)"
-	member 20 4 "File Version"
-	member 24 8 "Entry Point" $(slice 24 8 ${UINT} 0x%x)
-	member 32 8 "Program Header Table Offset" $(slice 32 8 ${UINT} 0x%x)
-	member 40 8 "Section Header Table Offset" $(slice 40 8 ${UINT} 0x%x)
-	member 48 4 "Processor-Specific Flags"
-	member 52 2 "ELF Header Size" $(slice 52 2 ${UINT16})
-	member 54 2 "Program Header Size" $(slice 54 2 ${UINT16})
-	member 56 2 "Program Header Count" $(slice 56 2 ${UINT16})
-	member 58 2 "Section Header Size" $(slice 58 2 ${UINT16})
-	member 60 2 "Section Header Count" $(slice 60 2 ${UINT16})
-	member 62 2 "Section Name String Table Index" $(slice 62 2 ${UINT16})
+	dump -o ${offset} -s ${size} "${OBJECT}" | \
+	sift -f "${format}" -t ${type}
 }
 
 member()
@@ -212,6 +312,136 @@ member()
 	fi
 
 	dump -o ${offset} -s ${size} -t f ${palette} "${OBJECT}"
+}
+
+
+# -- ELF Header --------------------------------------------------------------
+
+ehdr_ident()
+{
+	member ${EI_MAGIC}      ${EI_MAGIC_SIZE}      "ei_magic"
+	member ${EI_CLASS}      ${EI_CLASS_SIZE}      "ei_class"
+	member ${EI_DATA}       ${EI_DATA_SIZE}       "ei_data"
+	member ${EI_VERSION}    ${EI_VERSION_SIZE}    "ei_version"
+	member ${EI_OSABI}      ${EI_OSABI_SIZE}      "ei_osabi"
+	member ${EI_ABIVERSION} ${EI_ABIVERSION_SIZE} "ei_abiversion"
+	member ${EI_PAD}        ${EI_PAD_SIZE}        "ei_pad"
+}
+
+ehdr_display()
+{
+	ehdr_ident
+
+	member ${ELF_TYPE}     ${ELF_TYPE_SIZE}     "e_type"
+	member ${ELF_MACHINE}  ${ELF_MACHINE_SIZE}  "e_machine"
+	member ${ELF_VERSION}  ${ELF_VERSION_SIZE}  "e_version"
+	member ${ELF_ENTRY}    ${ELF_ENTRY_SIZE}    "e_entry"
+	member ${ELF_PHOFF}    ${ELF_PHOFF_SIZE}    "e_phoff"
+	member ${ELF_SHOFF}    ${ELF_SHOFF_SIZE}    "e_shoff"
+	member ${ELF_FLAGS}    ${ELF_FLAGS_SIZE}    "e_flags"
+	member ${ELF_EHSIZE}   ${ELF_EHSIZE_SIZE}   "e_ehsize"
+	member ${ELF_PHENTSIZ} ${ELF_PHENTSIZ_SIZE} "e_phentsiz"
+	member ${ELF_PHNUM}    ${ELF_PHNUM_SIZE}    "e_phnum"
+	member ${ELF_SHENTSIZ} ${ELF_SHENTSIZ_SIZE} "e_shentsiz"
+	member ${ELF_SHNUM}    ${ELF_SHNUM_SIZE}    "e_shnum"
+	member ${ELF_SHSTRNDX} ${ELF_SHSTRNDX_SIZE} "e_shstrndx"
+}
+
+ehdr_interpret()
+{
+	member ${EI_MAGIC} \
+	       ${EI_MAGIC_SIZE} \
+	       "Magic"
+
+	member ${EI_CLASS} \
+	       ${EI_CLASS_SIZE} \
+	       "Class" \
+	       "$(ehdr_class ${EI_CLASS} ${EI_CLASS_SIZE})"
+
+	member ${EI_DATA} \
+	       ${EI_DATA_SIZE} \
+	       "Data" \
+	       "$(ehdr_data ${EI_DATA} ${EI_DATA_SIZE})"
+
+	member ${EI_VERSION} \
+	       ${EI_VERSION_SIZE} \
+	       "Version"
+
+	member ${EI_OSABI} \
+	       ${EI_OSABI_SIZE} \
+	       "OS / ABI" \
+	       "$(ehdr_osabi ${EI_OSABI} ${EI_OSABI_SIZE})"
+
+	member ${EI_ABIVERSION} \
+	       ${EI_ABIVERSION_SIZE} \
+	       "ABI Version"
+
+	member ${EI_PAD} \
+	       ${EI_PAD_SIZE} \
+	       "Padding"
+
+	member ${ELF_TYPE} \
+	       ${ELF_TYPE_SIZE} \
+	       "Object Type" \
+	       "$(ehdr_object ${ELF_TYPE} ${ELF_TYPE_SIZE})"
+
+	member ${ELF_MACHINE} \
+	       ${ELF_MACHINE_SIZE} \
+	       "Architecture" \
+	       "$(ehdr_machine ${ELF_MACHINE} ${ELF_MACHINE_SIZE})"
+
+	member ${ELF_VERSION} \
+	       ${ELF_VERSION_SIZE} \
+	       "File Version"
+
+	member ${ELF_ENTRY} \
+	       ${ELF_ENTRY_SIZE} \
+	       "Entry Point" \
+	       $(slice ${ELF_ENTRY} ${ELF_ENTRY_SIZE} ${UINT} 0x%x)
+
+	member ${ELF_PHOFF} \
+	       ${ELF_PHOFF_SIZE} \
+	       "Program Header Table Offset" \
+	       $(slice ${ELF_PHOFF} ${ELF_PHOFF_SIZE} ${UINT} 0x%x)
+
+	member ${ELF_SHOFF} \
+	       ${ELF_SHOFF_SIZE} \
+	       "Section Header Table Offset" \
+	       $(slice ${ELF_SHOFF} ${ELF_SHOFF_SIZE} ${UINT} 0x%x)
+
+	member ${ELF_FLAGS} \
+	       ${ELF_FLAGS_SIZE} \
+	       "Processor-Specific Flags"
+
+	member ${ELF_EHSIZE} \
+	       ${ELF_EHSIZE_SIZE} \
+	       "ELF Header Size" \
+	       $(slice ${ELF_EHSIZE} ${ELF_EHSIZE_SIZE} ${UINT16})
+
+	member ${ELF_PHENTSIZ} \
+	       ${ELF_PHENTSIZ_SIZE} \
+	       "Program Header Size" \
+	       $(slice ${ELF_PHENTSIZ} ${ELF_PHENTSIZ_SIZE} ${UINT16})
+
+	member ${ELF_PHNUM} \
+	       ${ELF_PHNUM_SIZE} \
+	       "Program Header Count" \
+	       $(slice ${ELF_PHNUM} ${ELF_PHNUM_SIZE} ${UINT16})
+
+	member ${ELF_SHENTSIZ} \
+	       ${ELF_SHENTSIZ_SIZE} \
+	       "Section Header Size" \
+	       $(slice ${ELF_SHENTSIZ} ${ELF_SHENTSIZ_SIZE} ${UINT16})
+
+	member ${ELF_SHNUM} \
+	       ${ELF_SHNUM_SIZE} \
+	       "Section Header Count" \
+	       $(slice ${ELF_SHNUM} ${ELF_SHNUM_SIZE} ${UINT16})
+
+	member ${ELF_SHSTRNDX} \
+	       ${ELF_SHSTRNDX_SIZE} \
+	       "Section Name String Table Index" \
+	       $(slice ${ELF_SHSTRNDX} ${ELF_SHSTRNDX_SIZE} ${UINT16})
 }
 
 ehdr_class()
@@ -464,12 +694,170 @@ ehdr_machine()
 	esac
 }
 
-slice()
-{
-	local offset=$1 size=$2 type=$3 format=${4:-%d}
 
-	dump -o ${offset} -s ${size} "${OBJECT}" | \
-	sift -f "${format}" -t ${type}
+# -- ELF Section Header ------------------------------------------------------
+
+shdr_display()
+{
+	local index=$1
+
+	local shoff=$(slice ${ELF_SHOFF} ${ELF_SHOFF_SIZE} ${UINT})
+	local shentsiz=$(slice ${ELF_SHENTSIZ} ${ELF_SHENTSIZ_SIZE} ${UINT16})
+	local shnum=$(slice ${ELF_SHNUM} ${ELF_SHNUM_SIZE} ${UINT16})
+
+	if [ ${index} -lt 0 ] || [ ${index} -ge ${shnum} ]
+	then
+		printf "invalid section header index\n"
+		exit 1
+	fi
+
+	local offset=$((${shoff} + ${index} * ${shentsiz}))
+
+	member $((${offset} + ${ELF_SH_NAME})) \
+	       ${ELF_SH_NAME_SIZE} \
+	       "sh_name"
+
+	member $((${offset} + ${ELF_SH_TYPE})) \
+	       ${ELF_SH_TYPE_SIZE} \
+	       "sh_type"
+
+	member $((${offset} + ${ELF_SH_FLAGS})) \
+	       ${ELF_SH_FLAGS_SIZE} \
+	       "sh_flags"
+
+	member $((${offset} + ${ELF_SH_ADDR})) \
+	       ${ELF_SH_ADDR_SIZE} \
+	       "sh_addr"
+
+	member $((${offset} + ${ELF_SH_OFFSET})) \
+	       ${ELF_SH_OFFSET_SIZE} \
+	       "sh_offset"
+
+	member $((${offset} + ${ELF_SH_SIZE})) \
+	       ${ELF_SH_SIZE_SIZE} \
+	       "sh_size"
+
+	member $((${offset} + ${ELF_SH_LINK})) \
+	       ${ELF_SH_LINK_SIZE} \
+	       "sh_link"
+
+	member $((${offset} + ${ELF_SH_INFO})) \
+	       ${ELF_SH_INFO_SIZE} \
+	       "sh_info"
+
+	member $((${offset} + ${ELF_SH_ADDRALIGN})) \
+	       ${ELF_SH_ADDRALIGN_SIZE} \
+	       "sh_addralign"
+
+	member $((${offset} + ${ELF_SH_ENTSIZE})) \
+	       ${ELF_SH_ENTSIZE_SIZE} \
+	       "sh_entsize"
 }
+
+shdr_interpret()
+{
+	local index=$1
+
+	local shoff=$(slice ${ELF_SHOFF} ${ELF_SHOFF_SIZE} ${UINT})
+	local shentsiz=$(slice ${ELF_SHENTSIZ} ${ELF_SHENTSIZ_SIZE} ${UINT16})
+	local shnum=$(slice ${ELF_SHNUM} ${ELF_SHNUM_SIZE} ${UINT16})
+
+	if [ ${index} -lt 0 ] || [ ${index} -ge ${shnum} ]
+	then
+		printf "invalid section header index\n"
+		exit 1
+	fi
+
+	local offset=$((${shoff} + ${index} * ${shentsiz}))
+
+	member $((${offset} + ${ELF_SH_NAME})) \
+	       ${ELF_SH_NAME_SIZE} \
+	       "Name" \
+	       $(shdr_name ${offset})
+
+	member $((${offset} + ${ELF_SH_TYPE})) \
+	       ${ELF_SH_TYPE_SIZE} \
+	       "Type"
+
+	member $((${offset} + ${ELF_SH_FLAGS})) \
+	       ${ELF_SH_FLAGS_SIZE} \
+	       "Flags"
+
+	member $((${offset} + ${ELF_SH_ADDR})) \
+	       ${ELF_SH_ADDR_SIZE} \
+	       "Memory Address" \
+	       $(slice $((${offset} + ${ELF_SH_ADDR})) \
+	               ${ELF_SH_ADDR_SIZE} \
+	               ${UINT} 0x%x)
+
+	member $((${offset} + ${ELF_SH_OFFSET})) \
+	       ${ELF_SH_OFFSET_SIZE} \
+	       "File Offset" \
+	       $(slice $((${offset} + ${ELF_SH_OFFSET})) \
+	               ${ELF_SH_OFFSET_SIZE} \
+	               ${UINT} 0x%x)
+
+	member $((${offset} + ${ELF_SH_SIZE})) \
+	       ${ELF_SH_SIZE_SIZE} \
+	       "Size" \
+	       $(slice $((${offset} + ${ELF_SH_SIZE})) \
+	               ${ELF_SH_SIZE_SIZE} \
+	               ${UINT})
+
+	member $((${offset} + ${ELF_SH_LINK})) \
+	       ${ELF_SH_LINK_SIZE} \
+	       "Link"
+
+	member $((${offset} + ${ELF_SH_INFO})) \
+	       ${ELF_SH_INFO_SIZE} \
+	       "Info"
+
+	member $((${offset} + ${ELF_SH_ADDRALIGN})) \
+	       ${ELF_SH_ADDRALIGN_SIZE} \
+	       "Alignment" \
+	       $(slice $((${offset} + ${ELF_SH_ADDRALIGN})) \
+	               ${ELF_SH_ADDRALIGN_SIZE} \
+	               ${UINT})
+
+	member $((${offset} + ${ELF_SH_ENTSIZE})) \
+	       ${ELF_SH_ENTSIZE_SIZE} \
+	       "Entry Size" \
+	       $(slice $((${offset} + ${ELF_SH_ENTSIZE})) \
+	               ${ELF_SH_ENTSIZE_SIZE} \
+	               ${UINT})
+}
+
+shdr_name()
+{
+	local shnum=$(slice ${ELF_SHNUM} ${ELF_SHNUM_SIZE} ${UINT16})
+
+	if [ ${shnum} -eq 0 ]
+	then
+		return
+	fi
+
+	local shdr_offset=$1
+	local name_offset=$(slice ${shdr_offset} ${ELF_SH_NAME_SIZE} ${UINT32})
+
+	local shoff=$(slice ${ELF_SHOFF} ${ELF_SHOFF_SIZE} ${UINT32})
+	local shentsiz=$(slice ${ELF_SHENTSIZ} ${ELF_SHENTSIZ_SIZE} ${UINT16})
+	local shstrndx=$(slice ${ELF_SHSTRNDX} ${ELF_SHSTRNDX_SIZE} ${UINT16})
+
+	local shstrtab=$((${shoff} + ${shstrndx} * ${shentsiz}))
+	local shstrtab_data=$(slice $((${shstrtab} + ${ELF_SH_OFFSET})) \
+	                            ${ELF_SH_OFFSET_SIZE} \
+	                            ${UINT})
+	local shstrtab_size=$(slice $((${shstrtab} + ${ELF_SH_SIZE})) \
+	                            ${ELF_SH_SIZE_SIZE} \
+	                            ${UINT})
+
+	local offset=$((${shstrtab_data} + ${name_offset}))
+	local size=$((${shstrtab_size} - ${offset}))
+
+	dump -o ${offset} -s ${size} "${OBJECT}" | sift -t string
+}
+
+
+# ----------------------------------------------------------------------------
 
 main "$@"
