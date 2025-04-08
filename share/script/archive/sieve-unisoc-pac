@@ -1,0 +1,507 @@
+#!/bin/sh
+
+MAGIC=$((0xfafffaff))
+
+HDR_VERSION=0            HDR_VERSION_SIZE=48
+HDR_FILE_SIZE=48         HDR_FILE_SIZE_SIZE=4
+HDR_PRODUCT=52           HDR_PRODUCT_SIZE=512
+HDR_FIRMWARE=564         HDR_FIRMWARE_SIZE=512
+HDR_RECORD_COUNT=1076    HDR_RECORD_COUNT_SIZE=4
+HDR_RECORD_OFFSET=1080   HDR_RECORD_OFFSET_SIZE=4
+HDR_MODE=1084            HDR_MODE_SIZE=4
+HDR_FLASH_TYPE=1088      HDR_FLASH_TYPE_SIZE=4
+HDR_NAND_STRATEGY=1092   HDR_NAND_STRATEGY_SIZE=4
+HDR_NVRAM_BACKUP=1096    HDR_NVRAM_BACKUP_SIZE=4
+HDR_NAND_PAGE_TYPE=1100  HDR_NAND_PAGE_TYPE_SIZE=4
+HDR_PRODUCT_ALIAS=1104   HDR_PRODUCT_ALIAS_SIZE=200
+HDR_OMA_DM_PRODUCT=1304  HDR_OMA_DM_PRODUCT_SIZE=4
+HDR_OMA_DM=1308          HDR_OMA_DM_SIZE=4
+HDR_PRELOAD=1312         HDR_PRELOAD_SIZE=4
+HDR_RESERVED=1316        HDR_RESERVED_SIZE=800
+HDR_MAGIC=2116           HDR_MAGIC_SIZE=4
+HDR_CRC1=2120            HDR_CRC1_SIZE=2
+HDR_CRC2=2122            HDR_CRC2_SIZE=2
+
+REC_STRUCT_SIZE=0        REC_STRUCT_SIZE_SIZE=4
+REC_FILE_ID=4            REC_FILE_ID_SIZE=512
+REC_FILE_NAME=516        REC_FILE_NAME_SIZE=512
+REC_FILE_VERSION=1028    REC_FILE_VERSION_SIZE=512
+REC_FILE_SIZE=1540       REC_FILE_SIZE_SIZE=4
+REC_FILE_TYPE=1544       REC_FILE_TYPE_SIZE=4
+REC_CHECK_FLAG=1548      REC_CHECK_FLAG_SIZE=4
+REC_DATA_OFFSET=1552     REC_DATA_OFFSET_SIZE=4
+REC_OMITTABLE=1556       REC_OMITTABLE_SIZE=4
+REC_ADDRESS_NUMBER=1560  REC_ADDRESS_NUMBER_SIZE=4
+REC_ADDRESS=1564         REC_ADDRESS_SIZE=20
+REC_RESERVED=1584        REC_RESERVED_SIZE=996
+
+REC_SIZE=$((${REC_RESERVED} + ${REC_RESERVED_SIZE}))
+
+set -e
+
+usage()
+{
+	printf "usage: sieve-unisoc-pac {OPTIONS}\n"
+	printf "\n"
+	printf "OPTIONS\n"
+	printf "\n"
+	printf "  -i                 Interpret member values\n"
+	printf "  -s TYPE [INDEX]    Structure type\n"
+	printf "  -f FILE            PAC file\n"
+	printf "\n"
+	printf "STRUCTURE TYPES\n"
+	printf "\n"
+	printf "  hdr                PAC Header (default)\n"
+	printf "  rec {INDEX}        PAC Record\n"
+	printf "\n"
+}
+
+main()
+{
+	local operation=sieve
+	local structure=hdr
+	local index=0
+
+	while [ $# -gt 0 ]
+	do
+		local option=$1
+		shift 1
+
+		case "${option}" in
+		("-i")
+			operation=interpret
+			;;
+
+		("-s")
+			if [ $# -eq 0 ]
+			then
+				usage
+				exit 1
+			fi
+
+			structure=$1
+			shift 1
+
+			case "${structure}" in
+			("hdr")
+				;;
+
+			("rec")
+				if [ $# -eq 0 ]
+				then
+					usage
+					exit 1
+				fi
+
+				index=$1
+				shift 1
+				;;
+
+			(*)
+				usage
+				exit 1
+				;;
+
+			esac
+			;;
+
+		("-f")
+			if [ $# -eq 0 ]
+			then
+				usage
+				exit 1
+			fi
+
+			FILE=$1
+			shift 1
+			;;
+
+		(*)
+			usage
+			exit 1
+			;;
+		esac
+	done
+
+	if [ -z "${FILE}" ]
+	then
+		usage
+		exit 1
+	fi
+
+	${structure}_${operation} ${index}
+}
+
+slice()
+{
+	local offset=$1 size=$2 type=$3 format=${4:-%d}
+	dump -o ${offset} -s ${size} "${FILE}" | sift -f "${format}" -t ${type}
+}
+
+member()
+{
+	local offset=$1 size=$2 label=$3 value=$4 palette=
+
+	if [ -z "${value}" ]
+	then
+		printf "${label}\n"
+	else
+		printf "${label}: %s\n" "${value}"
+	fi
+
+	if [ -n "${PALETTE}" ]
+	then
+		palette="-p ${PALETTE}"
+	fi
+
+	dump -o ${offset} -s ${size} -t f ${palette} "${FILE}"
+}
+
+
+# -- PAC Header --------------------------------------------------------------
+
+hdr_sieve()
+{
+	member ${HDR_VERSION} ${HDR_VERSION_SIZE} \
+	       "hdr_version"
+
+	member ${HDR_FILE_SIZE} ${HDR_FILE_SIZE_SIZE} \
+	       "hdr_file_size"
+
+	member ${HDR_PRODUCT} ${HDR_PRODUCT_SIZE} \
+	       "hdr_product"
+
+	member ${HDR_FIRMWARE} ${HDR_FIRMWARE_SIZE} \
+	       "hdr_firmware"
+
+	member ${HDR_RECORD_COUNT} ${HDR_RECORD_COUNT_SIZE} \
+	       "hdr_record_count"
+
+	member ${HDR_RECORD_OFFSET} ${HDR_RECORD_OFFSET_SIZE} \
+	       "hdr_record_offset"
+
+	member ${HDR_MODE} ${HDR_MODE_SIZE} \
+	       "hdr_mode"
+
+	member ${HDR_FLASH_TYPE} ${HDR_FLASH_TYPE_SIZE} \
+	       "hdr_flash_type"
+
+	member ${HDR_NAND_STRATEGY} ${HDR_NAND_STRATEGY_SIZE} \
+	       "hdr_nand_strategy"
+
+	member ${HDR_NVRAM_BACKUP} ${HDR_NVRAM_BACKUP_SIZE} \
+	       "hdr_nvram_backup"
+
+	member ${HDR_NAND_PAGE_TYPE} ${HDR_NAND_PAGE_TYPE_SIZE} \
+	       "hdr_nand_page_type"
+
+	member ${HDR_PRODUCT_ALIAS} ${HDR_PRODUCT_ALIAS_SIZE} \
+	       "hdr_product_alias"
+
+	member ${HDR_OMA_DM_PRODUCT} ${HDR_OMA_DM_PRODUCT_SIZE} \
+	       "hdr_oma_dm_product"
+
+	member ${HDR_OMA_DM} ${HDR_OMA_DM_SIZE} \
+	       "hdr_oma_dm"
+
+	member ${HDR_PRELOAD} ${HDR_PRELOAD_SIZE} \
+	       "hdr_preload"
+
+	member ${HDR_RESERVED} ${HDR_RESERVED_SIZE} \
+	       "hdr_reserved"
+
+	member ${HDR_MAGIC} ${HDR_MAGIC_SIZE} \
+	       "hdr_magic"
+
+	member ${HDR_CRC1} ${HDR_CRC1_SIZE} \
+	       "hdr_crc1"
+
+	member ${HDR_CRC2} ${HDR_CRC2_SIZE} \
+	       "hdr_crc2"
+}
+
+hdr_interpret()
+{
+	member ${HDR_VERSION} ${HDR_VERSION_SIZE} \
+	       "Version"
+
+	member ${HDR_FILE_SIZE} ${HDR_FILE_SIZE_SIZE} \
+	       "File Size" "$(hdr_file_size)"
+
+	member ${HDR_PRODUCT} ${HDR_PRODUCT_SIZE} \
+	       "Product Name"
+
+	member ${HDR_FIRMWARE} ${HDR_FIRMWARE_SIZE} \
+	       "Firmware Name"
+
+	member ${HDR_RECORD_COUNT} ${HDR_RECORD_COUNT_SIZE} \
+	       "Record Count" "$(hdr_record_count)"
+
+	member ${HDR_RECORD_OFFSET} ${HDR_RECORD_OFFSET_SIZE} \
+	       "Record Offset" "$(hdr_record_offset)"
+
+	member ${HDR_MODE} ${HDR_MODE_SIZE} \
+	       "Mode"
+
+	member ${HDR_FLASH_TYPE} ${HDR_FLASH_TYPE_SIZE} \
+	       "Flash Type"
+
+	member ${HDR_NAND_STRATEGY} ${HDR_NAND_STRATEGY_SIZE} \
+	       "NAND Strategy"
+
+	member ${HDR_NVRAM_BACKUP} ${HDR_NVRAM_BACKUP_SIZE} \
+	       "NVRAM Backup"
+
+	member ${HDR_NAND_PAGE_TYPE} ${HDR_NAND_PAGE_TYPE_SIZE} \
+	       "NAND Page Type"
+
+	member ${HDR_PRODUCT_ALIAS} ${HDR_PRODUCT_ALIAS_SIZE} \
+	       "Product Alias"
+
+	member ${HDR_OMA_DM_PRODUCT} ${HDR_OMA_DM_PRODUCT_SIZE} \
+	       "OMA DM Product"
+
+	member ${HDR_OMA_DM} ${HDR_OMA_DM_SIZE} \
+	       "OMA DM"
+
+	member ${HDR_PRELOAD} ${HDR_PRELOAD_SIZE} \
+	       "Preload"
+
+	member ${HDR_RESERVED} ${HDR_RESERVED_SIZE} \
+	       "Reserved"
+
+	member ${HDR_MAGIC} ${HDR_MAGIC_SIZE} \
+	       "Magic" "$(hdr_magic)"
+
+	member ${HDR_CRC1} ${HDR_CRC1_SIZE} \
+	       "CRC1"
+
+	member ${HDR_CRC2} ${HDR_CRC2_SIZE} \
+	       "CRC2"
+}
+
+hdr_version()
+{
+	slice ${HDR_VERSION} ${HDR_VERSION_SIZE} string "\"%s\""
+}
+
+hdr_file_size()
+{
+	slice ${HDR_FILE_SIZE} ${HDR_FILE_SIZE_SIZE} uint32le "%u"
+}
+
+hdr_product()
+{
+	slice ${HDR_PRODUCT} ${HDR_PRODUCT_SIZE} string "\"%s\""
+}
+
+hdr_firmware()
+{
+	slice ${HDR_FIRMWARE} ${HDR_FIRMWARE_SIZE} string "\"%s\""
+}
+
+hdr_record_count()
+{
+	slice ${HDR_RECORD_COUNT} ${HDR_RECORD_COUNT_SIZE} uint32le "%u"
+}
+
+hdr_record_offset()
+{
+	slice ${HDR_RECORD_OFFSET} ${HDR_RECORD_OFFSET_SIZE} uint32le "%08x"
+}
+
+hdr_magic()
+{
+	local value=$(slice ${HDR_MAGIC} ${HDR_MAGIC_SIZE} uint32be "%u")
+
+	case "${value}" in
+	(${MAGIC}) printf "OK" ;;
+	(*)        printf "Invalid" ;;
+	esac
+}
+
+
+# -- PAC Record --------------------------------------------------------------
+
+rec_sieve()
+{
+	local index=$1
+	local count=$(slice ${HDR_RECORD_COUNT} \
+	                    ${HDR_RECORD_COUNT_SIZE} uint32le)
+	local offset=$(slice ${HDR_RECORD_OFFSET} \
+	                     ${HDR_RECORD_OFFSET_SIZE} uint32le)
+
+	if [ ${index} -lt 0 ] || [ ${index} -ge ${count} ]
+	then
+		printf "invalid record index\n"
+		exit 1
+	fi
+
+	offset=$((${offset} + ${index} * ${REC_SIZE}))
+
+	member $((${offset} + ${REC_STRUCT_SIZE})) \
+	       ${REC_STRUCT_SIZE_SIZE} \
+	       "rec_struct_size"
+
+	member $((${offset} + ${REC_FILE_ID})) \
+	       ${REC_FILE_ID_SIZE} \
+	       "rec_file_id"
+
+	member $((${offset} + ${REC_FILE_NAME})) \
+	       ${REC_FILE_NAME_SIZE} \
+	       "rec_file_name"
+
+	member $((${offset} + ${REC_FILE_SIZE})) \
+	       ${REC_FILE_SIZE_SIZE} \
+	       "rec_file_size"
+
+	member $((${offset} + ${REC_FILE_TYPE})) \
+	       ${REC_FILE_TYPE_SIZE} \
+	       "rec_file_type"
+
+	member $((${offset} + ${REC_CHECK_FLAG})) \
+	       ${REC_CHECK_FLAG_SIZE} \
+	       "rec_check_flag"
+
+	member $((${offset} + ${REC_DATA_OFFSET})) \
+	       ${REC_DATA_OFFSET_SIZE} \
+	       "rec_data_offset"
+
+	member $((${offset} + ${REC_OMITTABLE})) \
+	       ${REC_OMITTABLE_SIZE} \
+	       "rec_omittable"
+
+	member $((${offset} + ${REC_ADDRESS_NUMBER})) \
+	       ${REC_ADDRESS_NUMBER_SIZE} \
+	       "rec_address_number"
+
+	member $((${offset} + ${REC_ADDRESS})) \
+	       ${REC_ADDRESS_SIZE} \
+	       "rec_address"
+
+	member $((${offset} + ${REC_RESERVED})) \
+	       ${REC_RESERVED_SIZE} \
+	       "rec_reserved"
+}
+
+rec_interpret()
+{
+	local index=$1
+	local count=$(slice ${HDR_RECORD_COUNT} \
+	                    ${HDR_RECORD_COUNT_SIZE} uint32le)
+	local offset=$(slice ${HDR_RECORD_OFFSET} \
+	                     ${HDR_RECORD_OFFSET_SIZE} uint32le)
+
+	if [ ${index} -lt 0 ] || [ ${index} -ge ${count} ]
+	then
+		printf "invalid record index\n"
+		exit 1
+	fi
+
+	offset=$((${offset} + ${index} * ${REC_SIZE}))
+
+	member $((${offset} + ${REC_STRUCT_SIZE})) \
+	       ${REC_STRUCT_SIZE_SIZE} \
+	       "Record Size" \
+	       "$(rec_struct_size ${offset})"
+
+	member $((${offset} + ${REC_FILE_ID})) \
+	       ${REC_FILE_ID_SIZE} \
+	       "File Identifier"
+
+	member $((${offset} + ${REC_FILE_NAME})) \
+	       ${REC_FILE_NAME_SIZE} \
+	       "File Name"
+
+	member $((${offset} + ${REC_FILE_VERSION})) \
+	       ${REC_FILE_VERSION_SIZE} \
+	       "File Version"
+
+	member $((${offset} + ${REC_FILE_SIZE})) \
+	       ${REC_FILE_SIZE_SIZE} \
+	       "File Size" \
+	       "$(rec_file_size ${offset})"
+
+	member $((${offset} + ${REC_FILE_TYPE})) \
+	       ${REC_FILE_TYPE_SIZE} \
+	       "File Type" \
+	       "$(rec_file_type ${offset})"
+
+	member $((${offset} + ${REC_CHECK_FLAG})) \
+	       ${REC_CHECK_FLAG_SIZE} \
+	       "Check Flag"
+
+	member $((${offset} + ${REC_DATA_OFFSET})) \
+	       ${REC_DATA_OFFSET_SIZE} \
+	       "Data Offset" \
+	       "$(rec_data_offset ${offset})"
+
+	member $((${offset} + ${REC_OMITTABLE})) \
+	       ${REC_OMITTABLE_SIZE} \
+	       "Omittable" \
+	       "$(rec_omittable ${offset})"
+
+	member $((${offset} + ${REC_ADDRESS_NUMBER})) \
+	       ${REC_ADDRESS_NUMBER_SIZE} \
+	       "Address Number"
+
+	member $((${offset} + ${REC_ADDRESS})) \
+	       ${REC_ADDRESS_SIZE} \
+	       "Address"
+
+	member $((${offset} + ${REC_RESERVED})) \
+	       ${REC_RESERVED_SIZE} \
+	       "Reserved"
+}
+
+rec_struct_size()
+{
+	slice $((${1} + ${REC_STRUCT_SIZE})) \
+	      ${REC_STRUCT_SIZE_SIZE} \
+	      uint32le "%u bytes"
+}
+
+rec_file_size()
+{
+	slice $((${1} + ${REC_FILE_SIZE})) \
+	      ${REC_FILE_SIZE_SIZE} \
+	      uint32le "%u bytes"
+}
+
+rec_file_type()
+{
+	local offset=$1
+	local value=$(slice $((${offset} + ${REC_FILE_TYPE})) \
+	                    ${REC_FILE_TYPE_SIZE} uint32le "%u")
+
+	case "${value}" in
+	  (0) printf "Operation" ;;
+	  (1) printf "Data" ;;
+	  (2) printf "XML" ;;
+	(257) printf "FDL" ;;
+	  (*) printf "Unknown" ;;
+	esac
+}
+
+rec_data_offset()
+{
+	slice $((${1} + ${REC_DATA_OFFSET})) \
+	      ${REC_DATA_OFFSET_SIZE} \
+	      uint32le "%08x"
+}
+
+rec_omittable()
+{
+	local offset=$1
+	local value=$(slice $((${offset} + ${REC_OMITTABLE})) \
+	                    ${REC_OMITTABLE_SIZE} uint32le "%u")
+
+	case "${value}" in
+	(0) printf "No" ;;
+	(*) printf "Yes" ;;
+	esac
+}
+
+# ----------------------------------------------------------------------------
+
+main "$@"
