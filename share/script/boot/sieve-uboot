@@ -1,0 +1,291 @@
+#!/bin/sh
+
+MAGIC=$((0x27051956))
+
+IH_MAGIC=0  IH_MAGIC_SIZE=4
+IH_HCRC=4   IH_HCRC_SIZE=4
+IH_TIME=8   IH_TIME_SIZE=4
+IH_SIZE=12  IH_SIZE_SIZE=4
+IH_LOAD=16  IH_LOAD_SIZE=4
+IH_EP=20    IH_EP_SIZE=4
+IH_DCRC=24  IH_DCRC_SIZE=4
+IH_OS=28    IH_OS_SIZE=1
+IH_ARCH=29  IH_ARCH_SIZE=1
+IH_TYPE=30  IH_TYPE_SIZE=1
+IH_COMP=31  IH_COMP_SIZE=1
+IH_NAME=32  IH_NAME_SIZE=32
+
+set -e
+
+usage()
+{
+	printf "usage: sieve-uboot [-i] FILE\n"
+}
+
+slice()
+{
+	local offset=$1 size=$2 type=$3 format=${4:-%d}
+	dump -o ${offset} -s ${size} "${FILE}" | sift -f "${format}" -t ${type}
+}
+
+member()
+{
+	local offset=$1 size=$2 label=$3 value=$4 palette=
+
+	if [ -z "${value}" ]
+	then
+		printf "${label}\n"
+	else
+		printf "${label}: %s\n" "${value}"
+	fi
+
+	if [ -n "${PALETTE}" ]
+	then
+		palette="-p ${PALETTE}"
+	fi
+
+	dump -o ${offset} -s ${size} -t f ${palette} "${FILE}"
+}
+
+sieve()
+{
+	member ${IH_MAGIC} ${IH_MAGIC_SIZE} "ih_magic"
+	member ${IH_HCRC}  ${IH_HCRC_SIZE}  "ih_hcrc"
+	member ${IH_TIME}  ${IH_TIME_SIZE}  "ih_time"
+	member ${IH_SIZE}  ${IH_SIZE_SIZE}  "ih_size"
+	member ${IH_LOAD}  ${IH_LOAD_SIZE}  "ih_load"
+	member ${IH_EP}    ${IH_EP_SIZE}    "ih_ep"
+	member ${IH_DCRC}  ${IH_DCRC_SIZE}  "ih_dcrc"
+	member ${IH_OS}    ${IH_OS_SIZE}    "ih_os"
+	member ${IH_ARCH}  ${IH_ARCH_SIZE}  "ih_arch"
+	member ${IH_TYPE}  ${IH_TYPE_SIZE}  "ih_type"
+	member ${IH_COMP}  ${IH_COMP_SIZE}  "ih_comp"
+	member ${IH_NAME}  ${IH_NAME_SIZE}  "ih_name"
+}
+
+interpret()
+{
+	member ${IH_MAGIC} ${IH_MAGIC_SIZE} "Header Magic" "$(ih_magic)"
+	member ${IH_HCRC}  ${IH_HCRC_SIZE}  "Header Checksum" "$(ih_hcrc)"
+	member ${IH_TIME}  ${IH_TIME_SIZE}  "Image Creation Time" "$(ih_time)"
+	member ${IH_SIZE}  ${IH_SIZE_SIZE}  "Data Size" "$(ih_size)"
+	member ${IH_LOAD}  ${IH_LOAD_SIZE}  "Data Load Address" "$(ih_load)"
+	member ${IH_EP}    ${IH_EP_SIZE}    "Entry Point Address" "$(ih_ep)"
+	member ${IH_DCRC}  ${IH_DCRC_SIZE}  "Data Checksum" "$(ih_dcrc)"
+	member ${IH_OS}    ${IH_OS_SIZE}    "Operating System" "$(ih_os)"
+	member ${IH_ARCH}  ${IH_ARCH_SIZE}  "CPU Architecture" "$(ih_arch)"
+	member ${IH_TYPE}  ${IH_TYPE_SIZE}  "Image Type" "$(ih_type)"
+	member ${IH_COMP}  ${IH_COMP_SIZE}  "Compression Type" "$(ih_comp)"
+	member ${IH_NAME}  ${IH_NAME_SIZE}  "Image Name" "$(ih_name)"
+}
+
+ih_magic()
+{
+	local magic=$(slice ${IH_MAGIC} ${IH_MAGIC_SIZE} uint32be)
+
+	case "${magic}" in
+	(${MAGIC}) printf "OK" ;;
+	(*)        printf "Invalid" ;;
+	esac
+}
+
+ih_time()
+{
+	date -d "@$(slice ${IH_TIME} ${IH_SIZE} uint32be)" +%c
+}
+
+ih_hcrc()
+{
+	slice ${IH_HCRC} ${IH_HCRC_SIZE} uint32be "0x%08x"
+}
+
+ih_size()
+{
+	slice ${IH_SIZE} ${IH_SIZE_SIZE} uint32be "%u bytes"
+}
+
+ih_load()
+{
+	slice ${IH_LOAD} ${IH_LOAD_SIZE} uint32be "%08x"
+}
+
+ih_ep()
+{
+	slice ${IH_EP} ${IH_EP_SIZE} uint32be "%08x"
+}
+
+ih_dcrc()
+{
+	slice ${IH_DCRC} ${IH_DCRC_SIZE} uint32be "0x%08x"
+}
+
+ih_os()
+{
+	local value=$(slice ${IH_OS} ${IH_OS_SIZE} uint8)
+
+	case "${value}" in
+	 (0) printf "Invalid" ;;
+	 (1) printf "OpenBSD" ;;
+	 (2) printf "NetBSD" ;;
+	 (3) printf "FreeBSD" ;;
+	 (4) printf "4.4BSD" ;;
+	 (5) printf "Linux" ;;
+	 (6) printf "SVR4" ;;
+	 (7) printf "Esix" ;;
+	 (8) printf "Solaris" ;;
+	 (9) printf "IRIX" ;;
+	(10) printf "SCO" ;;
+	(11) printf "Dell" ;;
+	(12) printf "NCR" ;;
+	(13) printf "LynxOS" ;;
+	(14) printf "VxWorks" ;;
+	(15) printf "pSOS" ;;
+	(16) printf "QNX" ;;
+	(17) printf "Firmware" ;;
+	(18) printf "RTEMS" ;;
+	(19) printf "ARTOS" ;;
+	(20) printf "Unity OS" ;;
+	(21) printf "INTEGRITY" ;;
+	(22) printf "OSE" ;;
+	(23) printf "Plan 9" ;;
+	(24) printf "OpenRTOS" ;;
+	(25) printf "ARM Trusted Firmware" ;;
+	(26) printf "Trusted Execution Environment" ;;
+	(27) printf "RISC-V OpenSBI" ;;
+	(28) printf "EFI Firmware" ;;
+	esac
+}
+
+ih_arch()
+{
+	local value=$(slice ${IH_ARCH} ${IH_ARCH_SIZE} uint8)
+
+	case "${value}" in
+	 (0) printf "Invalid" ;;
+	 (1) printf "Alpha" ;;
+	 (2) printf "ARM" ;;
+	 (3) printf "x86" ;;
+	 (4) printf "ia64" ;;
+	 (5) printf "MIPS" ;;
+	 (6) printf "MIPS64" ;;
+	 (7) printf "PowerPC" ;;
+	 (8) printf "S/390" ;;
+	 (9) printf "SuperH" ;;
+	(10) printf "SPARC" ;;
+	(11) printf "SPARC64" ;;
+	(12) printf "m68k" ;;
+	(13) printf "Nios-32" ;;
+	(14) printf "MicroBlaze" ;;
+	(15) printf "Blackfin" ;;
+	(16) printf "Nios-II" ;;
+	(17) printf "AVR32" ;;
+	(18) printf "ST200" ;;
+	(19) printf "Sandbox" ;;
+	(20) printf "NDS32" ;;
+	(21) printf "OpenRISC 1000" ;;
+	(22) printf "ARM64" ;;
+	(23) printf "ARC" ;;
+	(24) printf "x86-64" ;;
+	(25) printf "Xtensa" ;;
+	(26) printf "RISC-V" ;;
+	esac
+}
+
+ih_type()
+{
+	local value=$(slice ${IH_TYPE} ${IH_TYPE_SIZE} uint8)
+
+	case "${value}" in
+	 (0) printf "Invalid" ;;
+	 (1) printf "Standalone" ;;
+	 (2) printf "Kernel" ;;
+	 (3) printf "RAM Disk" ;;
+	 (4) printf "Multi-File" ;;
+	 (5) printf "Firmware" ;;
+	 (6) printf "Script" ;;
+	 (7) printf "Filesystem" ;;
+	 (8) printf "Flat Device Tree" ;;
+	 (9) printf "Kirkwood Boot Image" ;;
+	(10) printf "Freescale IMX Boot Image" ;;
+	(11) printf "Davinci UBL Image" ;;
+	(12) printf "TI OMAP Config Header Image" ;;
+	(13) printf "TI Davinci AIS Image" ;;
+	(14) printf "OS Kernel Image" ;;
+	(15) printf "Freescale PBL Boot Image" ;;
+	(16) printf "Freescale MXS Boot Image" ;;
+	(17) printf "TI Keystone GP Header Image" ;;
+	(18) printf "Atmel ROM bootable Image" ;;
+	(19) printf "Altera SoCFPGA CV/AV Preloader" ;;
+	(20) printf "x86 setup.bin Image" ;;
+	(21) printf "LPC32xx Image" ;;
+	(22) printf "Typeless?/Loadable?" ;;
+	(23) printf "Rockchip Boot Image" ;;
+	(24) printf "Rockchip SD Card" ;;
+	(25) printf "Rockchip SPI Image" ;;
+	(26) printf "Xilinx Zynq Boot Image" ;;
+	(27) printf "Xilinx ZynqMP Boot Image" ;;
+	(28) printf "Xilinx ZynqMP Boot Image" ;;
+	(29) printf "FPGA Image" ;;
+	(30) printf "Vybrid Image" ;;
+	(31) printf "Trusted Execution Environment OS Image" ;;
+	(32) printf "Firmware Image with HABv4 IVT" ;;
+	(33) printf "TI Power Management Microcontroller Firmware" ;;
+	(34) printf "STM32 Image" ;;
+	(35) printf "Aletera SoCFPGA A10 Preloader" ;;
+	(36) printf "Freescale iMX8 MBoot Image" ;;
+	(37) printf "Freescale iMX8 Boot Image" ;;
+	(38) printf "Co-processor Image" ;;
+	(39) printf "Allwinner eGON Boot Image" ;;
+	(40) printf "Allwinner TOC0 Boot Image" ;;
+	esac
+}
+
+ih_comp()
+{
+	local value=$(slice ${IH_COMP} ${IH_COMP_SIZE} uint8)
+
+	case "${value}" in
+	(0) printf "None" ;;
+	(1) printf "gzip" ;;
+	(2) printf "bzip2" ;;
+	(3) printf "lzma" ;;
+	(4) printf "lzo" ;;
+	(5) printf "lz4" ;;
+	(6) printf "zstd" ;;
+	esac
+}
+
+ih_name()
+{
+	slice ${IH_NAME} ${IH_NAME_SIZE} string "\"%s\""
+}
+
+main()
+{
+	case "$#" in
+	(1)
+		FILE=$1
+		sieve
+		;;
+
+	(2)
+		case "$1" in
+		("-i")
+			FILE=$2
+			interpret
+			;;
+		(*)
+			usage
+			exit 1
+			;;
+		esac
+		;;
+
+	(*)
+		usage
+		exit 1
+		;;
+	esac
+}
+
+main "$@"
